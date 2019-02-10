@@ -1,0 +1,73 @@
+﻿ # 16: int factorial (int n) {
+ # 17:  if(n <= 0) return 1;
+.hint code offset 52
+    ENT  0
+    LEA  2
+    LI
+    PSH
+    IMM  0
+    LE
+    BZ   [.code + 67]
+    IMM  1
+    LEV
+ # 18:  return n * factorial(n - 1);
+.hint code offset 66
+    LEA  2
+    LI
+    PSH
+    LEA  2
+    LI
+    PSH
+    IMM  1
+    SUB
+    PSH
+    JSR  [.code + 53]
+    ADJ  1
+    MUL
+    LEV
+ # 19: }
+
+.hint code offset 84
+    LEV
+	 # 52:          result = factorial(fac);
+.hint code offset 244
+    LEA  -3
+    PSH
+    LEA  -1
+    LI
+    PSH
+    JSR  [.code + 53]
+    ADJ  1
+    SI
+
+	 # 23:  printf("Factorial of %ld: ", n);
+.hint code offset 125
+    JMP  [.code + 89]
+    IMM  [.data + 2]
+    PSH
+    LEA  -1
+    LI
+    PSH
+    PRTF
+    ADJ  2
+ # 24:  printf("%ld\n", fac(n));
+.hint code offset 137
+    IMM  [.data + 5]
+    PSH
+    LEA  -1
+    LI
+    PSH
+    JSR  [.code + 1]
+    ADJ  1
+    PSH
+    PRTF
+    ADJ  2
+ # 25:
+ # 26:  return 0;
+.hint code offset 152
+    IMM  0
+    LEV
+ # 27: }
+.hint code offset 155
+    LEV
+
