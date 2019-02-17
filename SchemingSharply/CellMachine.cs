@@ -393,289 +393,50 @@ namespace SchemingSharply
 				}
 			}
 
-			public static void TestEval ()
-			{
-				CodeBuilder code = new CodeBuilder();
-				List<Cell> data = new List<Cell>();
-				Dictionary<string, int> labels = new Dictionary<string, int>();
-				// effective addresses of values (avoid magic numbers)
-				int env = 2, x = 3, xl0 = -1, i = -2, exps = -3, proc = -4;
-
-				// func eval(x, env)
-				//   locals: xl0, exps, proc
-				code.SetLabel("eval", code.Add(OpCode.ENTER, 5));
-				code.Add(OpCode.LEA, x); // get x
-				code.Add(OpCode.CELLTYPE); // get cell type
-				code.Add(OpCode.PUSH); // leave on stack
-				// if (typeof x == Symbol)
-				code.Add(OpCode.DATA, code.Data((int)CellType.STRING));
-				code.Add(OpCode.EQK);
-				code.Add(OpCode.BZ); code.Delayed("if_x_ne_symbol");
-				//   return env[x];
-				code.Add(OpCode.LEA, x); // x
-				code.Add(OpCode.PUSH); // onto stack
-				code.Add(OpCode.LEA, env); // env
-				code.Add(OpCode.ENVLOOKUP); // A = cell.env[A]
-				code.Add(OpCode.LEAVE);
-				// if (typeof x == Number)
-				code.SetLabel("if_x_ne_symbol", code.Add(OpCode.DATA));
-				code.Add(code.Data((int)CellType.NUMBER));
-				code.Add(OpCode.EQK);
-				code.Add(OpCode.BZ); code.Delayed("if_x_ne_number");
-				//   return x;
-				code.Add(OpCode.LEA, x);
-				code.Add(OpCode.LEAVE);
-
-				// remove celltype from stack
-				code.SetLabel("if_x_ne_number", code.Add(OpCode.ADJ, 1));
-				// if (x.listcount == 0)
-				code.Add(OpCode.LEA, x);
-				code.Add(OpCode.CELLCOUNT); // A = A.ListValue.Count
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.DATA, code.Data(0));
-				code.Add(OpCode.EQ);
-				code.Add(OpCode.BZ); code.Delayed("if_xcount_ne_0");
-				//   return sym_nil;
-				code.Add(OpCode.DATA, code.Data(StandardRuntime.Nil));
-				code.Add(OpCode.LEAVE);
-
-				code.SetLabel("if_xcount_ne_0", code.Add(OpCode.NOP));
-				// xl0 = x.list[0]
-				code.Add(OpCode.LEA, x);
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.DATA, code.Data(0));
-				code.Add(OpCode.CELLINDEX);
-				code.Add(OpCode.SEA, xl0);
-				code.Add(OpCode.ADJ, 1); // remove x from stack
-				code.Add(OpCode.PUSH); // will be grabbed later
-				code.Add(OpCode.CELLTYPE); // stack = x.list[0].type
-				code.Add(OpCode.PUSH);
-				// if (typeof xl0 == Symbol) {
-				code.Add(OpCode.DATA, code.Data((int)CellType.STRING));
-				code.Add(OpCode.EQ);
-				code.Add(OpCode.BZ); code.Delayed("if_xl0_ne_symbol");
-				//   if (xl0 == "quote")
-				code.Add(OpCode.DATA, code.Data("quote"));
-				code.Add(OpCode.EQK); // keeps xl0 on stack
-				code.Add(OpCode.BZ); code.Delayed("if_xl0_ne_quote");
-				//     return x.list[1]
-				code.Add(OpCode.DATA, code.Data(1));
-				code.Add(OpCode.CELLINDEX); // A = Stack[SP][A]
-				code.Add(OpCode.LEAVE); // stack will be cleared
-				//   if (xl0 == "if")
-				code.SetLabel("if_xl0_ne_quote", code.Add(OpCode.DATA));
-				code.Add(code.Data("if"));
-				code.Add(OpCode.EQK); // keep xl0 on stack
-				code.Add(OpCode.BZ); code.Delayed("if_xl0_ne_if");
-				//     return eval_if(x, env)
-				code.Add(OpCode.LEA, env); code.Add(OpCode.PUSH);
-				code.Add(OpCode.LEA, x); code.Add(OpCode.PUSH);
-				code.Add(OpCode.JSR); code.Delayed("eval_if");
-				code.Add(OpCode.LEAVE);
-
-				code.SetLabel("if_xl0_ne_if", code.Add(OpCode.DATA));
-				//   if (xl0 == "set!")
-				code.Add(code.Data("set!"));
-				code.Add(OpCode.EQK);
-				code.Add(OpCode.BZ); code.Delayed("if_xl0_ne_set!");
-				//     env.Set(x.list[1], eval(x.list[2], env))
-				//     env
-				code.Add(OpCode.LEA, env);
-				//       eval(x.list[2], env)
-				code.Add(OpCode.LEA, x);
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.DATA, code.Data(2));
-				code.Add(OpCode.CELLINDEX);
-				code.Add(OpCode.ADJ, 1); // remove x from stack
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.LEA, env);
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.JSR); code.Delayed("eval");
-				code.Add(OpCode.PUSH);
-				//     x.list[1]
-				code.Add(OpCode.LEA, x);
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.DATA, code.Data(1));
-				code.Add(OpCode.CELLINDEX);
-				code.Add(OpCode.ADJ, 1); // remove x from stack
-				//   env.Set() - puts value in A
-				code.Add(OpCode.ENVSET);
-				code.Add(OpCode.LEAVE);
-				code.SetLabel("if_xl0_ne_set!", code.Add(OpCode.DATA));
-				//   if (xl0 == "define!")
-				code.Add(code.Data("define"));
-				code.Add(OpCode.EQK);
-				code.Add(OpCode.BZ); code.Delayed("if_xl0_ne_define");
-				//     env.Define(x.list[1], eval(x.list[2], env))
-				//     env
-				code.Add(OpCode.LEA, env);
-				//       eval(x.list[2], env)
-				code.Add(OpCode.LEA, x);
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.DATA, code.Data(2));
-				code.Add(OpCode.CELLINDEX);
-				code.Add(OpCode.ADJ, 1); // remove x from stack
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.LEA, env);
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.JSR); code.Delayed("eval");
-				code.Add(OpCode.PUSH);
-				//     x.list[1]
-				code.Add(OpCode.LEA, x);
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.DATA, code.Data(1));
-				code.Add(OpCode.CELLINDEX);
-				code.Add(OpCode.ADJ, 1); // remove x from stack
-				//   env.Set() - puts value in A
-				code.Add(OpCode.ENVDEFINE);
-				code.Add(OpCode.LEAVE);
-
-				code.SetLabel("if_xl0_ne_define", code.Add(OpCode.DATA));
-				// if (xl0 == "lambda") {
-				code.Add(code.Data("lambda"));
-				code.Add(OpCode.EQK);
-				code.Add(OpCode.BZ); code.Delayed("if_xl0_ne_lambda");
-				// x.type = Lambda
-				code.Add(OpCode.LEA, x);
-				code.Add(OpCode.PUSH); // copy x to stack for modification
-				code.Add(OpCode.DATA, code.Data((int)CellType.LAMBDA));
-				code.Add(OpCode.CELLSETTYPE);
-				// x.env = env
-				code.Add(OpCode.LEA, env); // x is still on stack
-				code.Add(OpCode.CELLSETENV);
-				code.Add(OpCode.POP); // move modified cell into A
-				//     return x
-				code.Add(OpCode.LEAVE);
-				//   }
-				code.SetLabel("if_xl0_ne_lambda", code.Add(OpCode.DATA));
-				code.Add(code.Data("begin"));
-				code.Add(OpCode.EQK);
-				code.Add(OpCode.BZ); code.Delayed("if_xl0_ne_begin");
-				//   *stack = x[1...]
-				code.Add(OpCode.LEA, x);
-				code.Add(OpCode.PUSH);   // will be reused in while loop
-				//   while(*stack.length > 1)
-				code.SetLabel("begin_while", code.Add(OpCode.CELLCOUNT)); // a = *stack.listvalue.length
-				code.Add(OpCode.PUSH); // *++stack = stack.length
-				code.Add(OpCode.DATA, code.Data(1)); // a = 1
-				code.Add(OpCode.GT); // a = *stack > 1
-				code.Add(OpCode.BZ); code.Delayed("if_stacklen_not_gt1");
-				//     eval(*stack, env)
-				code.Add(OpCode.LEA, env);
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.JSR); code.Delayed("eval"); // recurse!
-				//     *stack = *stack.tail()
-				code.Add(OpCode.CELLTAIL);  // a = *stack++[1...] - removes from stack
-				code.Add(OpCode.PUSH); // put it back onto the stack for comparison loop
-				code.Add(OpCode.JMP); code.Delayed("begin_while");
-				//   }
-				code.SetLabel("if_stacklen_not_gt1", code.Add(OpCode.NOP));
-				//   return eval(*stack, env)  - item to eval still on stack
-				code.Add(OpCode.LEA, env);
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.JSR); code.Delayed("eval");
-				code.Add(OpCode.LEAVE);
-				code.SetLabel("if_xl0_ne_begin", code.Add(OpCode.NOP));
-				// falls through:
-				// }
-				// label if_xl0_ne_symbol:
-				code.SetLabel("if_xl0_ne_symbol", code.Add(OpCode.NOP));
-				// proc = eval(x.list[0], env)
-				code.Add(OpCode.LEA, xl0);
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.LEA, env);
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.JSR); code.Delayed("eval");
-				//code.Add(OpCode.ADJ, 2); // remove from stack
-				// exps = new Cell(List)
-				code.Add(OpCode.DATA, (int)CellType.LIST);
-				code.Add(OpCode.CELLNEW);
-				code.Add(OpCode.SEA, exps);
-				// while(x.listvalue.count > 0) {
-				code.Add(OpCode.LEA, x);
-				code.SetLabel("eval_exps_while", code.Add(OpCode.CELLCOUNT));
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.DATA, code.Data(0));
-				code.Add(OpCode.GT);
-				code.Add(OpCode.BZ); code.Delayed("eval_exps_done");
-				//   exps.push(eval(head(x), env))
-				code.Add(OpCode.LEA, x);
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.CELLHEAD);
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.LEA, env);
-				code.Add(OpCode.JSR); code.Delayed("eval");
-				code.Add(OpCode.ADJ, 2); // remove head(x) and env??
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.LEA, exps);
-				//code.Add(OpCode.SWITCH);  // swap exps and result
-				code.Add(OpCode.CELLPUSH);  // *stack.list.push(A)
-				//   x = tail(x)
-				code.Add(OpCode.LEA, x);
-				code.Add(OpCode.CELLTAIL);  // A = A.listvalue.Tail()
-				code.Add(OpCode.SEA, x);
-				code.Add(OpCode.JMP); code.Delayed("eval_exps_while");
-				// }
-				// if (proc.type == Lambda) {
-				code.SetLabel("eval_exps_done", code.Add(OpCode.LEA, proc));
-
-				// func eval_if(parts, targetenv)
-				//    locals: test, conseq, alt
-				int parts = 3, targetenv = 2, test = -1, conseq = -2, alt = -3;
-				code.SetLabel("eval_if", code.Add(OpCode.ENTER, 3));
-				//  test = eval(parts.list[1], targetenv)
-				code.Add(OpCode.LEA, parts);
-				code.Add(OpCode.PUSH);   // stack++ = parts
-				code.Add(OpCode.DATA, code.Data(1));
-				code.Add(OpCode.CELLINDEX);
-				code.Add(OpCode.ADJ, 1); // remove parts from stack
-				code.Add(OpCode.PUSH);   // stack++ = parts.list[1]
-				code.Add(OpCode.LEA, targetenv);
-				code.Add(OpCode.PUSH);   // stack++ = targetenv
-				code.Add(OpCode.JSR); code.Delayed("eval");
-				code.Add(OpCode.SEA, test); // test = A
-				//  conseq = parts.list[2]
-				code.Add(OpCode.LEA, parts);
-				code.Add(OpCode.PUSH);   // stack++ = parts
-				code.Add(OpCode.DATA, code.Data(2));
-				code.Add(OpCode.CELLINDEX);  // leaving *stack == parts
-				code.Add(OpCode.SEA, conseq);
-				//  if parts.listcount < 4
-				code.Add(OpCode.PEEK);      // copy *stack into A
-				code.Add(OpCode.CELLCOUNT); // get cell count of A
-				code.Add(OpCode.PUSH);      // push count on to stack
-				code.Add(OpCode.DATA, code.Data(4));
-				code.Add(OpCode.LE);        // stack now has parts after comparison
-				code.Add(OpCode.BZ); code.Delayed("eval_if_has_alt");
-				//    alt = nil
-				code.Add(OpCode.DATA, code.Data(StandardRuntime.Nil));
-				code.Add(OpCode.JMP); code.Delayed("eval_if_store_alt");
-				//  else
-				code.SetLabel("eval_if_has_alt", code.Add(OpCode.NOP));
-				//    alt = parts.list[3]
-				code.Add(OpCode.DATA, code.Data(3));
-				code.Add(OpCode.CELLINDEX);
-				// (save into alt)
-				code.SetLabel("eval_if_store_alt", code.Add(OpCode.SEA, alt));
-				//  return test == false ? alt : conseq
-				code.Add(OpCode.LEA, test);
-				code.Add(OpCode.PUSH);
-				code.Add(OpCode.DATA, code.Data(StandardRuntime.False));
-				code.Add(OpCode.EQ);
-				code.Add(OpCode.BZ); code.Delayed("eval_conseq");
-				code.Add(OpCode.LEA, alt);
-				code.Add(OpCode.LEAVE);
-				code.SetLabel("eval_conseq", code.Add(OpCode.LEA, conseq));
-				code.Add(OpCode.LEAVE);
-			}
-
-			public static void TestCompile() {
-				string code = System.IO.File.ReadAllText("../../Core/Eval.asm");
-				CellMachineAssembler assembler = new CellMachineAssembler(code);
+			public static void TestCompileFac() {
+				string eval = System.IO.File.ReadAllText("../../Core/Fac.asm");
+				string entry = "main";
+				CellMachineAssembler assembler = new CellMachineAssembler(eval, entry);
 				CodeResult result = assembler.Generate();
 
+				List<Cell> args = new List<Cell>();
+				args.Add(new Cell(10));
+
+				Machine machine = new Machine(result, args);
+
+				while(machine.Finished == false) {
+					machine.Step();
+					if(false) machine.PrintState();
+				}
 			}
 
+			public static void TestCompileEval() {
+				string eval = System.IO.File.ReadAllText("../../Core/Eval.asm");
+				string entry = "main";
+				CellMachineAssembler assembler = new CellMachineAssembler(eval, entry);
+				CodeResult result = assembler.Generate();
+
+				List<Cell> args = new List<Cell>();
+
+				string code = ""
+				 + "(begin "
+				 + "   (define fac (lambda (n) (if (<= n 1) 1 (* n (fac (- n 1))))))"
+				 + "   (print (fac 10)))";
+				Cell codeCell = StandardRuntime.Read(code);
+				args.Add(codeCell);
+
+				SchemeEnvironment env = new SchemeEnvironment();
+				StandardRuntime.AddGlobals(env);
+				args.Add(new Cell(env));
+
+				Machine machine = new Machine(result, args);
+
+				int steps = 0;
+				while(machine.Finished == false && steps++ < 10) {
+					machine.Step();
+					machine.PrintState();
+				}
+			}
 		}
 
 		public struct CodeResult
@@ -717,6 +478,8 @@ namespace SchemingSharply
 				{
 					return Value;
 				}
+
+				public override string ToString() => "Fixed:" + Value.ToString();
 			}
 
 			public struct DelayedCodeEntry : ICodeEntry {
@@ -727,6 +490,7 @@ namespace SchemingSharply
 				public int GetValue(CodeBuilder builder) {
 					return builder.GetLabel(Label);
 				}
+				public override string ToString() => "Label:" + Label;
 			}
 
 			public struct CellCodeEntry : ICodeEntry {
@@ -737,6 +501,7 @@ namespace SchemingSharply
 				public int GetValue(CodeBuilder builder) {
 					return builder.Data(Value);
 				}
+				public override string ToString() => "Cell:" + (string)Value;
 			}
 
 			protected List<ICodeEntry> code = new List<ICodeEntry>();
@@ -808,12 +573,14 @@ namespace SchemingSharply
 		public class CellMachineAssembler : ICodeBuilder
 		{
 			public string Code { get; }
+			public string Entry { get; set; }
 
 			protected CodeBuilder builder;
 
-			public CellMachineAssembler(string code)
+			public CellMachineAssembler(string code, string entry)
 			{
 				Code = code;
+				Entry = entry;
 			}
 
 			protected enum AssembleStatus {
@@ -837,6 +604,10 @@ namespace SchemingSharply
 				public static AssembleState None {
 					get { return new AssembleState(); }
 				}
+			}
+
+			public int GetLabel(string label) {
+				return builder.GetLabel(label);
 			}
 
 			public void Assemble ()
@@ -869,21 +640,25 @@ namespace SchemingSharply
 						int value;
 						if (word.StartsWith("\"") && word.EndsWith("\"")) {
 							position = builder.Add(builder.Data(word.Substring(1, word.Length - 2)));
+						} else if(word.StartsWith("$")) {
+							if (int.TryParse(word.Substring(1), out value)) {
+								position = builder.Add(builder.Data(value));
+							} else throw new InvalidOperationException("Invalid usage of $ operator");
 						} else if (int.TryParse(word, out value)) {
-							position = builder.Add(builder.Data(value));
+							position = builder.Add(value);
 						} else {
 							position = builder.Delayed(word);
 						}
 					}
 				}
 
-				System.Diagnostics.Debugger.Break();
 			}
 
 			protected void addStandardLabels() {
 				builder.SetLabel("StandardRuntime.Nil", StandardRuntime.Nil);
 				builder.SetLabel("StandardRuntime.False", StandardRuntime.False);
 				builder.SetLabel("StandardRuntime.True", StandardRuntime.True);
+				builder.SetLabel("Environment.NewLine", new Cell(Environment.NewLine));
 #if FALSE
 				builder.SetLabel("CellType.STRING", (int)CellType.STRING);
 				builder.SetLabel("CellType.NUMBER", (int)CellType.NUMBER);
@@ -983,6 +758,7 @@ namespace SchemingSharply
 			{
 				builder = new CodeBuilder();
 				Assemble();
+				builder.Entry = builder.GetLabel(Entry);
 				return builder.Generate();
 			}
 		}

@@ -89,7 +89,7 @@ if_x_ne_number:
 	LEA x
 	CELLCOUNT ; A = A.ListValue.Count
 	PUSH
-	DATA 0
+	DATA $0
 	EQ
 	BZ if_xcount_ne_0
 	;   return sym_nil;
@@ -100,7 +100,7 @@ if_xcount_ne_0:
 	; xl0 = x.list[0]
 	LEA x
 	PUSH
-	DATA 0
+	DATA $0
 	CELLINDEX
 	SEA xl0
 	ADJ 1 ; remove x from stack
@@ -116,7 +116,7 @@ if_xcount_ne_0:
 	EQK ; keeps xl0 on stack
 	BZ if_xl0_ne_quote
 	;     return x.list[1]
-	DATA 1
+	DATA $1
 	CELLINDEX ; A = Stack[SP][A]
 	LEAVE ; stack will be cleared
 	;   if (xl0 == "if")
@@ -141,7 +141,7 @@ if_xl0_ne_if:
 	;       eval(x.list[2], env)
 	LEA x
 	PUSH
-	DATA 2
+	DATA $2
 	CELLINDEX
 	ADJ 1 ; remove x from stack
 	PUSH
@@ -152,7 +152,7 @@ if_xl0_ne_if:
 	;     x.list[1]
 	LEA x
 	PUSH
-	DATA 1
+	DATA $1
 	CELLINDEX
 	ADJ 1 ; remove x from stack
 	;   env.Set() - puts value in A
@@ -169,7 +169,7 @@ if_xl0_ne_set!:
 	;       eval(x.list[2], env)
 	LEA x
 	PUSH
-	DATA 2
+	DATA $2
 	CELLINDEX
 	ADJ 1 ; remove x from stack
 	PUSH
@@ -180,7 +180,7 @@ if_xl0_ne_set!:
 	;     x.list[1]
 	LEA x
 	PUSH
-	DATA 1
+	DATA $1
 	CELLINDEX
 	ADJ 1 ; remove x from stack
 	;   env.Set() - puts value in A
@@ -216,7 +216,7 @@ if_xl0_ne_lambda:
 begin_while:
 	CELLCOUNT ; a = *stack.listvalue.length
 	PUSH ; *++stack = stack.length
-	DATA 1 ; a = 1
+	DATA $1 ; a = 1
 	GT ; a = *stack > 1
 	BZ if_stacklen_not_gt1
 	;     eval(*stack, env)
@@ -256,7 +256,7 @@ if_xl0_ne_symbol:
 eval_exps_while:
 	CELLCOUNT
 	PUSH
-	DATA 0
+	DATA $0
 	GT
 	BZ eval_exps_done
 	;   exps.push(eval(head(x), env))
@@ -298,7 +298,7 @@ eval_if:
 	;  test = eval(parts.list[1], targetenv)
 	LEA parts
 	PUSH   ; stack++ = parts
-	DATA 1
+	DATA $1
 	CELLINDEX
 	ADJ 1 ; remove parts from stack
 	PUSH   ; stack++ = parts.list[1]
@@ -309,14 +309,14 @@ eval_if:
 	;  conseq = parts.list[2]
 	LEA parts
 	PUSH   ; stack++ = parts
-	DATA 2
+	DATA $2
 	CELLINDEX  ; leaving *stack == parts
 	SEA conseq
 	;  if parts.listcount < 4
 	PEEK      ; copy *stack into A
 	CELLCOUNT ; get cell count of A
 	PUSH      ; push count on to stack
-	DATA 4
+	DATA $4
 	LE        ; stack now has parts after comparison
 	BZ eval_if_has_alt
 	;    alt = nil
@@ -325,7 +325,7 @@ eval_if:
 	;  else
 eval_if_has_alt:
 	;    alt = parts.list[3]
-	DATA 3
+	DATA $3
 	CELLINDEX
 eval_if_store_alt:
 	; (save into alt)
@@ -341,3 +341,18 @@ eval_if_store_alt:
 eval_conseq:
 	LEA conseq
 	LEAVE
+
+	NOP
+	; main (Code, Env)
+main:
+!define Code 2
+!define Env  1
+	ENTER 0
+	;   Eval(Code, Env)
+	LEA Code
+	PUSH
+	LEA Env
+	PUSH
+	JSR eval
+	DATA 0
+	EXIT

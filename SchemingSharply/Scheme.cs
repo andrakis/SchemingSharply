@@ -108,6 +108,14 @@ namespace SchemingSharply.Scheme
 			Environment = null;
 		}
 
+		public Cell(SchemeEnvironment envptr) {
+			Type = CellType.ENVPTR;
+			Value = "";
+			ListValue = new List<Cell>();
+			ProcValue = null;
+			Environment = envptr;
+		}
+
 		public override bool Equals(object obj) => base.Equals(obj);
 		public override int GetHashCode() => base.GetHashCode();
 		public override string ToString() => (string)this;
