@@ -13,7 +13,8 @@ namespace SchemingSharply {
 		{
 			//TestScheme();
 			//TestVM();
-			SchemingSharply.CellMachine.Machine.Test1();
+			//SchemingSharply.CellMachine.Machine.Test1();
+			SchemingSharply.CellMachine.Machine.TestCompile();
 
 			if (System.Diagnostics.Debugger.IsAttached)
 			{

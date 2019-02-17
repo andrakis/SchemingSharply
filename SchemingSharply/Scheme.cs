@@ -35,26 +35,38 @@ namespace SchemingSharply.Scheme
 		ENVPTR
 	}
 
+	public interface ICell
+	{
+		CellType Type { get; }
+		string Value { get; }
+		List<Cell> ListValue { get; }
+		SchemeEnvironment Environment { get; set; }
+
+		int ToInteger();
+		Cell Head();
+		Cell Tail();
+	}
+
 	public struct Cell
 	{
+		public delegate Cell CellProc(Cell[] args);
+
 		public static string NilValue = "#nil";
 		public static string TrueValue = "#true";
 		public static string FalseValue = "#false";
 
-		public delegate Cell CellProc(Cell[] args);
-
-		public CellType Type;
-		public readonly string Value;
-		public readonly List<Cell> ListValue;
-		public readonly CellProc ProcValue;
-		public SchemeEnvironment Environment;
+		public CellType Type { get; set; }
+		public string Value { get; }
+		public List<Cell> ListValue { get; }
+		public CellProc ProcValue { get; }
+		public SchemeEnvironment Environment { get; set; }
 
 		public Cell(string value, CellType type = CellType.STRING)
 		{
 			Type = type;
 			Value = value;
+			ListValue = new List<Cell>();
 			if (Value == null) Value = NilValue;
-			ListValue = null;
 			ProcValue = null;
 			Environment = null;
 		}
@@ -67,14 +79,13 @@ namespace SchemingSharply.Scheme
 		public Cell(int value)
 			: this(value.ToString(), CellType.NUMBER)
 		{
-
 		}
 
-		public Cell(List<Cell> list)
+		public Cell(IEnumerable<Cell> list)
 		{
 			Type = CellType.LIST;
-			Value = null;
-			ListValue = list;
+			Value = "";
+			ListValue = list.ToList();
 			ProcValue = null;
 			Environment = null;
 		}
@@ -82,9 +93,18 @@ namespace SchemingSharply.Scheme
 		public Cell(CellProc proc)
 		{
 			Type = CellType.PROC;
-			Value = null;
-			ListValue = null;
+			Value = "";
+			ListValue = new List<Cell>();
 			ProcValue = proc;
+			Environment = null;
+		}
+
+		public Cell(CellType type)
+		{
+			Type = type;
+			Value = "";
+			ListValue = new List<Cell>();
+			ProcValue = null;
 			Environment = null;
 		}
 
@@ -102,6 +122,21 @@ namespace SchemingSharply.Scheme
 			}
 
 			return int.Parse(c.Value);
+		}
+
+		public int ToInteger() { return (int)this; }
+
+		public Cell Head()
+		{
+			if (ListValue.Count == 0) return StandardRuntime.Nil;
+			return ListValue[0];
+		}
+
+		public Cell Tail()
+		{
+			if (ListValue.Count == 0)
+				return new Cell(CellType.LIST);
+			return new Cell(ListValue.Skip(1));
 		}
 
 		private static string listToString(List<Cell> cells)
@@ -220,6 +255,21 @@ namespace SchemingSharply.Scheme
 			if (outer != null)
 				return outer.Find(key);
 			throw new CellNameNotFound(key);
+		}
+
+		public Cell Lookup(Cell key)
+		{
+			return Find(key.Value)[key.Value];
+		}
+
+		public void Set(Cell key, Cell value)
+		{
+			Find(key.Value)[key.Value] = value;
+		}
+
+		public void Define(Cell key, Cell value)
+		{
+			map.Add(key.Value, value);
 		}
 	}
 
