@@ -16,7 +16,6 @@ fac:
 	;        load 1, leave
 	DATA $1
 	LEAVE
-	NOP
 
 n_not_le_1:
 
@@ -39,20 +38,17 @@ n_not_le_1:
 	;    return
 	LEAVE
 
-;
-	NOP
 ; int main (int n) {
 main:
 	ENTER 0
 ;    print "Factorial of "
-; TODO: Assembler bug - spaces break data
-	DATA "Factorial"
+	DATA "Factorial of "
 	PRINT
 	;    print n
 	LEA 1
 	PRINT
-	;    print "is"
-	DATA "is"
+	;    print " is "
+	DATA " is "
 	PRINT
 	;    print fac(n)
 	LEA 1
@@ -64,3 +60,4 @@ main:
 	PRINT
 	DATA $0
 	EXIT
+

@@ -396,8 +396,18 @@ namespace SchemingSharply
 			public static void TestCompileFac() {
 				string eval = System.IO.File.ReadAllText("../../Core/Fac.asm");
 				string entry = "main";
-				CellMachineAssembler assembler = new CellMachineAssembler(eval, entry);
-				CodeResult result = assembler.Generate();
+				CodeResult result;
+
+				try {
+					result = CellMachineAssembler.Assemble(eval, entry);
+				} catch (Exception e) {
+					Console.WriteLine("Failed to assemble: {0}", e.Message);
+#if DEBUG
+					Console.WriteLine("Stack trace:");
+					Console.WriteLine(e.StackTrace);
+#endif
+					return;
+				}
 
 				List<Cell> args = new List<Cell>();
 				args.Add(new Cell(10));
@@ -456,6 +466,11 @@ namespace SchemingSharply
 		public interface ICodeBuilder
 		{
 			CodeResult Generate();
+		}
+
+		public class CBLabelNotFoundException : Exception {
+			public CBLabelNotFoundException(string label)
+				: base("CodeBuilder Label not found: " + label) { }
 		}
 
 		public class CodeBuilder : ICodeBuilder
@@ -562,9 +577,12 @@ namespace SchemingSharply
 				labels[label] = new CellCodeEntry(value);
 			}
 
-			public int GetLabel (string label)
-			{
-				return labels[label].GetValue(this);
+			public int GetLabel(string label) {
+				try {
+					return labels[label].GetValue(this);
+				} catch (KeyNotFoundException knfe) {
+					throw new CBLabelNotFoundException(label);
+				}
 			}
 
 			internal bool HasLabel(string value) => labels.ContainsKey(value);
@@ -583,26 +601,34 @@ namespace SchemingSharply
 				Entry = entry;
 			}
 
+			public static CodeResult Assemble(string code, string entry) {
+				CellMachineAssembler assembler = new CellMachineAssembler(code, entry);
+				return assembler.Generate();
+			}
+
 			protected enum AssembleStatus {
 				NONE,
 				DEFINE_NAME,
 				DEFINE_VALUE,
+				IN_STRING,
 			}
 
 			protected struct AssembleState {
 				public AssembleStatus Status;
 				public string DefineName;
 				public string DefineValue;
+				public List<string> StrWords;
 
 				public AssembleState(AssembleStatus status = AssembleStatus.NONE,
 					string defineName = "", string defineValue = "") {
 					Status = status;
 					DefineName = defineName;
 					DefineValue = defineValue;
+					StrWords = new List<string>();
 				}
 
 				public static AssembleState None {
-					get { return new AssembleState(); }
+					get { return new AssembleState(AssembleStatus.NONE); }
 				}
 			}
 
@@ -622,7 +648,9 @@ namespace SchemingSharply
 
 				foreach (string word in words) {
 					if (word.EndsWith(":")) { // label
-						builder.SetLabel(word.Substring(0, word.Length - 1), position);
+						// off-by-one error on first label
+						int relPosition = (position > 0) ? position + 1 : 0;
+						builder.SetLabel(word.Substring(0, word.Length - 1), relPosition);
 						continue;
 					} else if (word == "!define") {
 						state.Status = AssembleStatus.DEFINE_NAME;
@@ -638,8 +666,28 @@ namespace SchemingSharply
 						state.Status = AssembleStatus.NONE;
 					} else {
 						int value;
-						if (word.StartsWith("\"") && word.EndsWith("\"")) {
-							position = builder.Add(builder.Data(word.Substring(1, word.Length - 2)));
+						if (word == "\"") {
+							if (state.Status == AssembleStatus.IN_STRING) {
+								state.StrWords.Add("");
+								string str = string.Join(" ", state.StrWords);
+								position = builder.Add(builder.Data(str));
+								state.Status = AssembleStatus.NONE;
+							} else {
+								state.StrWords.Clear();
+								state.StrWords.Add("");
+								state.Status = AssembleStatus.IN_STRING;
+							}
+						} else if(state.Status == AssembleStatus.IN_STRING) {
+							state.StrWords.Add(word);
+						} else if (word.StartsWith("\"")) {
+							if(word.EndsWith("\"")) // Have full string
+								position = builder.Add(builder.Data(word.Substring(1, word.Length - 2)));
+							else {
+								// string got broken up
+								state.StrWords.Clear();
+								state.StrWords.Add(word.Substring(1));
+								state.Status = AssembleStatus.IN_STRING;
+							}
 						} else if(word.StartsWith("$")) {
 							if (int.TryParse(word.Substring(1), out value)) {
 								position = builder.Add(builder.Data(value));
