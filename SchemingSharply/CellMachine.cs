@@ -84,7 +84,14 @@ namespace SchemingSharply
 				return attributes.Length > 0 ? (T)attributes[0] : null;
 			}
 
-			public static bool HasArgument(this Enum value)
+			public static Dictionary<string,TValue> GetKeyValues<TValue>(this Enum value) {
+				Dictionary<string, TValue> keyValues = new Dictionary<string, TValue>();
+				foreach (var i in value.GetType().GetEnumValues())
+					keyValues.Add(value.GetType().GetEnumName(i), (TValue)i);
+				return keyValues;
+			}
+
+			public static bool HasArgument(this OpCode value)
 			{
 				var attribute = value.GetAttribute<HasArgumentAttribute>();
 				return attribute != null;
@@ -399,7 +406,15 @@ namespace SchemingSharply
 				CodeResult result;
 
 				try {
+#if DEBUG
+					System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+					sw.Start();
+#endif
 					result = CellMachineAssembler.Assemble(eval, entry);
+#if DEBUG
+					sw.Stop();
+					Console.Error.WriteLine("!Code assembled in {0}", sw.Elapsed);
+#endif
 				} catch (Exception e) {
 					Console.WriteLine("Failed to assemble: {0}", e.Message);
 #if DEBUG
@@ -471,6 +486,11 @@ namespace SchemingSharply
 		public class CBLabelNotFoundException : Exception {
 			public CBLabelNotFoundException(string label)
 				: base("CodeBuilder Label not found: " + label) { }
+		}
+
+		public class CBDuplicateLabelException : Exception {
+			public CBDuplicateLabelException(string label) 
+				: base("CodeBuilder label already defined: " + label) { }
 		}
 
 		public class CodeBuilder : ICodeBuilder
@@ -662,6 +682,8 @@ namespace SchemingSharply
 						state.Status = AssembleStatus.DEFINE_VALUE;
 					} else if (state.Status == AssembleStatus.DEFINE_VALUE) {
 						state.DefineValue = word;
+						if (builder.HasLabel(state.DefineName))
+							throw new CBDuplicateLabelException(state.DefineName);
 						builder.SetLabel(state.DefineName, assembleValue(state.DefineValue));
 						state.Status = AssembleStatus.NONE;
 					} else {
@@ -707,20 +729,14 @@ namespace SchemingSharply
 				builder.SetLabel("StandardRuntime.False", StandardRuntime.False);
 				builder.SetLabel("StandardRuntime.True", StandardRuntime.True);
 				builder.SetLabel("Environment.NewLine", new Cell(Environment.NewLine));
-#if FALSE
-				builder.SetLabel("CellType.STRING", (int)CellType.STRING);
-				builder.SetLabel("CellType.NUMBER", (int)CellType.NUMBER);
-				builder.SetLabel("CellType.LIST", (int)CellType.LIST);
-				builder.SetLabel("CellType.LAMBDA", (int)CellType.LAMBDA);
-				builder.SetLabel("CellType.PROC", (int)CellType.PROC);
-				builder.SetLabel("CellType.ENVPTR", (int)CellType.ENVPTR);
-#endif
-				Type celltype = typeof(CellType);
-				foreach (var i in celltype.GetEnumValues())
-					builder.SetLabel("CellType." + celltype.GetEnumName(i), (int)i);
-				Type opcode = typeof(OpCode);
-				foreach(var i in opcode.GetEnumValues())
-					builder.SetLabel(opcode.GetEnumName(i), (int)i);
+				// Add CellType.[Name] definitions
+				CellType cellType = CellType.STRING;
+				foreach (var kv in cellType.GetKeyValues<int>())
+					builder.SetLabel("CellType." + kv.Key, kv.Value);
+				OpCode opcode = OpCode.NOP;
+				// Add OpCodes (no prefix)
+				foreach (var kv in opcode.GetKeyValues<int>())
+					builder.SetLabel(kv.Key, kv.Value);
 			}
 
 			public class LabelNotFoundException : Exception {
