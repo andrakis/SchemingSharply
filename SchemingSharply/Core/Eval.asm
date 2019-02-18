@@ -11,9 +11,11 @@
 ;   5) DATA opcodes must provide either a number or a string, and are
 ;      then converted into a DATA code and the equivalent offset in the
 ;      Data segment for the data provided.
+;      NOTE: when providing numbers to DATA, precede with $.
+;        EG: DATA $1
 ;   6) After all lines read, labels added, and symbols added, a final
 ;      pass runs that replaces any known words with number equivalents.
-;   7) Optionally, OpCode can be checked to ensure a number is provided
+; xxx) Optionally, OpCode can be checked to ensure a number is provided
 ;      on the same line as the command for OpCodes that require it one.
 ;   8) OpCodes are implemented as numbers.
 ;   9) Data segment generated: Cell[] type.
@@ -59,7 +61,7 @@ eval:
 !define i    -2
 !define exps -3
 !define proc -4
-ENTER 5
+	ENTER 5
 	LEA x ; get x
 	CELLTYPE ; get cell type
 	PUSH ; leave on stack
@@ -73,8 +75,8 @@ ENTER 5
 	LEA env ; env
 	ENVLOOKUP ; A = cell.env[A]
 	LEAVE
-	; if (typeof x == Number)
 if_x_ne_symbol:
+	; if (typeof x == Number)
 	DATA CellType.NUMBER
 	EQK
 	BZ if_x_ne_number
@@ -82,8 +84,8 @@ if_x_ne_symbol:
 	LEA x
 	LEAVE
 
-; remove celltype from stack
 if_x_ne_number:
+	; remove celltype from stack
 	ADJ 1
 	; if (x.listcount == 0)
 	LEA x
@@ -119,8 +121,9 @@ if_xcount_ne_0:
 	DATA $1
 	CELLINDEX ; A = Stack[SP][A]
 	LEAVE ; stack will be cleared
+
+if_xl0_ne_quote:
 	;   if (xl0 == "if")
-	if_xl0_ne_quote:
 	DATA "if"
 	EQK ; keep xl0 on stack
 	BZ if_xl0_ne_if
@@ -158,6 +161,7 @@ if_xl0_ne_if:
 	;   env.Set() - puts value in A
 	ENVSET
 	LEAVE
+
 if_xl0_ne_set!:
 	;   if (xl0 == "define")
 	DATA "define"
@@ -284,9 +288,11 @@ eval_exps_done:
 	
 ; end proc eval
 
+; eval_if: determine result of (if test conseq [alt]).
+;          Uses 3 local variables, so is not part of eval to reduce stack usage.
+; func eval_if(parts, targetenv)
+;    locals: test, conseq, alt
 eval_if:
-	; func eval_if(parts, targetenv)
-	;    defines: test, conseq, alt
 !define parts      3
 !define targetenv  2
 !define test      -1
@@ -342,8 +348,7 @@ eval_conseq:
 	LEA conseq
 	LEAVE
 
-	NOP
-	; main (Code, Env)
+; main (Code, Env)
 main:
 !define Code 2
 !define Env  1
