@@ -2,7 +2,7 @@
 ; Implements the Scheme eval(x, env) loop.
 ;
 ; Written in a simple assembly format:
-;   1) C++ style comments: ; comment.
+;   1) Comment style: ; comment.
 ;   2) A number of pre-defined words are added to the name dictionary.
 ;      These include all OpCodes, as well as CellType enum and some
 ;      standard runtime values.
