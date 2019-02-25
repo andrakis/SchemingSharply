@@ -675,6 +675,10 @@ namespace SchemingSharply
 					} else if (word == "!define") {
 						state.Status = AssembleStatus.DEFINE_NAME;
 						continue;
+					} else if (word == "") {
+						if (state.Status == AssembleStatus.IN_STRING)
+							state.StrWords.Add(word);
+						continue;
 					}
 
 					if (state.Status == AssembleStatus.DEFINE_NAME) {
@@ -756,7 +760,7 @@ namespace SchemingSharply
 			protected string[] readWords (string[] lines) {
 				List<string> words = new List<string>();
 				foreach (string line in lines)
-					words.AddRange(line.Split(' ').Where(word => word.Length > 0));
+					words.AddRange(line.Split(' '));
 				return words.ToArray();
 			}
 
