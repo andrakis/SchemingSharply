@@ -139,23 +139,24 @@ namespace SchemingSharply
 			{
 			}
 
-			public void Step ()
-			{
+			public void Step() {
 				if (finished) return;
 
 				int ins = Code[PC++];
+				Execute((OpCode)ins);
+			}
 
+			public void Execute(OpCode ins) {
 #if DEBUG
-				OpCode insOp = (OpCode)ins;
-				Console.Write("!ins {0}", typeof(OpCode).GetEnumName(insOp));
-				if(insOp.HasArgument())
+				Console.Write("!ins {0}", typeof(OpCode).GetEnumName(ins));
+				if(ins.HasArgument())
 				{
 					Console.Write(" {0}", Code[PC]);
 				}
 				Console.WriteLine();
 #endif
 
-				switch((OpCode)ins)
+				switch(ins)
 				{
 					case OpCode.NOP:
 						break;
@@ -306,7 +307,7 @@ namespace SchemingSharply
 						break;
 
 					default:
-						throw new MissingOpCodeException((OpCode)ins);
+						throw new MissingOpCodeException(ins);
 				}
 			}
 
@@ -597,6 +598,12 @@ namespace SchemingSharply
 				labels[label] = new CellCodeEntry(value);
 			}
 
+			/// <summary>
+			/// Get the position associated with the label.
+			/// The label is case-insensitive.
+			/// </summary>
+			/// <param name="label"></param>
+			/// <returns></returns>
 			public int GetLabel(string label) {
 				try {
 					return labels[label].GetValue(this);
@@ -667,24 +674,17 @@ namespace SchemingSharply
 				addStandardLabels();
 
 				foreach (string word in words) {
-					if (word.EndsWith(":")) { // label
-						// off-by-one error on first label
-						int relPosition = (position > 0) ? position + 1 : 0;
-						builder.SetLabel(word.Substring(0, word.Length - 1), relPosition);
-						continue;
-					} else if (word == "!define") {
+					if (word == "!define") {
 						state.Status = AssembleStatus.DEFINE_NAME;
 						continue;
-					} else if (word == "") {
-						if (state.Status == AssembleStatus.IN_STRING)
-							state.StrWords.Add(word);
+					} else if (word == "" && state.Status == AssembleStatus.NONE) {
 						continue;
 					}
 
-					if (state.Status == AssembleStatus.DEFINE_NAME) {
+					if (word != "" && state.Status == AssembleStatus.DEFINE_NAME) {
 						state.DefineName = word;
 						state.Status = AssembleStatus.DEFINE_VALUE;
-					} else if (state.Status == AssembleStatus.DEFINE_VALUE) {
+					} else if (word != "" && state.Status == AssembleStatus.DEFINE_VALUE) {
 						state.DefineValue = word;
 						if (builder.HasLabel(state.DefineName))
 							throw new CBDuplicateLabelException(state.DefineName);
@@ -703,10 +703,14 @@ namespace SchemingSharply
 								state.StrWords.Add("");
 								state.Status = AssembleStatus.IN_STRING;
 							}
-						} else if(state.Status == AssembleStatus.IN_STRING) {
+						} else if (state.Status == AssembleStatus.IN_STRING && word.EndsWith("\"")) {
+							state.StrWords.Add(word.Substring(0, word.Length - 1));
+							string str = string.Join(" ", state.StrWords);
+							position = builder.Add(builder.Data(str));
+						} else if (state.Status == AssembleStatus.IN_STRING) {
 							state.StrWords.Add(word);
 						} else if (word.StartsWith("\"")) {
-							if(word.EndsWith("\"")) // Have full string
+							if (word.EndsWith("\"")) // Have full string
 								position = builder.Add(builder.Data(word.Substring(1, word.Length - 2)));
 							else {
 								// string got broken up
@@ -714,13 +718,17 @@ namespace SchemingSharply
 								state.StrWords.Add(word.Substring(1));
 								state.Status = AssembleStatus.IN_STRING;
 							}
-						} else if(word.StartsWith("$")) {
+						} else if (word.StartsWith("$")) {
 							if (int.TryParse(word.Substring(1), out value)) {
 								position = builder.Add(builder.Data(value));
 							} else throw new InvalidOperationException("Invalid usage of $ operator");
 						} else if (int.TryParse(word, out value)) {
 							position = builder.Add(value);
-						} else {
+						} else if (word.EndsWith(":")) { // label
+							// off-by-one error on first label
+							int relPosition = (position > 0) ? position + 1 : 0;
+							builder.SetLabel(word.Substring(0, word.Length - 1), relPosition);
+						} else if (word != "") {
 							position = builder.Delayed(word);
 						}
 					}
