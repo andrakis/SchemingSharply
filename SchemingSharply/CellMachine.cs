@@ -225,7 +225,7 @@ namespace SchemingSharply
 						break;
 
 					case OpCode.EQK:
-						A = new Cell(((int)Stack[SP] != (int)A) ? 1 : 0);
+						A = new Cell(((int)Stack[SP] == (int)A) ? 1 : 0);
 						break;
 
 					case OpCode.NEQ:
@@ -233,7 +233,7 @@ namespace SchemingSharply
 						break;
 
 					case OpCode.NEQK:
-						A = new Cell(((int)Stack[SP] == (int)A) ? 1 : 0);
+						A = new Cell(((int)Stack[SP] != (int)A) ? 1 : 0);
 						break;
 
 					case OpCode.JSR:
