@@ -40,6 +40,8 @@ namespace SchemingSharply
 			LEAVE,  // Pop BP from stack
 			[HasArgument]
 			BZ,     // Branch to next code position's value if A == 0
+			[HasArgument]
+			BNZ,    // Branch to next code position's value if A != 0
 			JMP,    // Unconditonal branch to next code position's value
 			LT,     // A = *Stack++ <  A
 			LTK,    // A = *Stack   <  A
@@ -70,6 +72,8 @@ namespace SchemingSharply
 			ENVNEW,     // A = new Environment(*Stack-1, *Stack++, A.Environment)
 			EXIT,   // Exit with value in A
 			PRINT,  // Print Cell in register A
+			[HasArgument]
+			HALTMSG,// Print message in data slot provided
 			STATE,  // Print Machine state
 		}
 
@@ -246,6 +250,10 @@ namespace SchemingSharply
 						PC = (int)A == 0 ? Code[PC] : PC + 1;
 						break;
 
+					case OpCode.BNZ:
+						PC = (int)A != 0 ? Code[PC] : PC + 1;
+						break;
+
 					case OpCode.JMP:
 						PC = Code[PC];
 						break;
@@ -270,12 +278,21 @@ namespace SchemingSharply
 						A = Stack[SP].ListValue[(int)A];
 						break;
 
+					case OpCode.CELLINVOKE:
+						A = Stack[SP - 1].ProcValue(Stack[SP].ListValue.ToArray());
+						break;
+
 					case OpCode.CELLSETTYPE:
 						Stack[SP].Type = (CellType)(int)A;
 						break;
 
 					case OpCode.CELLSETENV:
 						Stack[SP].Environment = A.Environment;
+						break;
+
+					case OpCode.ENVNEW:
+						A = new Cell(new SchemeEnvironment(Stack[SP - 1].ListValue, Stack[SP].ListValue, A.Environment));
+						++SP;
 						break;
 
 					case OpCode.ENVLOOKUP:
@@ -295,6 +312,11 @@ namespace SchemingSharply
 
 					case OpCode.PRINT:
 						Console.Write("{0}", A);
+						break;
+
+					case OpCode.HALTMSG:
+						Console.Write((string)Data[Code[PC++]] + Environment.NewLine);
+						finished = true;
 						break;
 
 					case OpCode.STATE:
@@ -440,7 +462,18 @@ namespace SchemingSharply
 				string eval = System.IO.File.ReadAllText("../../Core/Eval.asm");
 				string entry = "main";
 				CellMachineAssembler assembler = new CellMachineAssembler(eval, entry);
-				CodeResult result = assembler.Generate();
+				CodeResult result;
+
+				try {
+					result = CellMachineAssembler.Assemble(eval, entry);
+				} catch (Exception e) {
+					Console.WriteLine("Failed to assemble: {0}", e.Message);
+#if DEBUG
+					Console.WriteLine("Stack trace:");
+					Console.WriteLine(e.StackTrace);
+#endif
+					return;
+				}
 
 				List<Cell> args = new List<Cell>();
 
@@ -458,7 +491,7 @@ namespace SchemingSharply
 				Machine machine = new Machine(result, args);
 
 				int steps = 0;
-				while(machine.Finished == false && steps++ < 10) {
+				while(machine.Finished == false) { // && steps++ < 10) {
 					machine.Step();
 					machine.PrintState();
 				}

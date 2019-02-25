@@ -62,6 +62,8 @@ eval:
 !define exps -3
 !define proc -4
 	ENTER 5
+	DATA "Foo"
+	PRINT
 	LEA x ; get x
 	CELLTYPE ; get cell type
 	PUSH ; leave on stack
@@ -76,6 +78,7 @@ eval:
 	ENVLOOKUP ; A = cell.env[A]
 	LEAVE
 if_x_ne_symbol:
+	HALTMSG "x != symbol"
 	; if (typeof x == Number)
 	DATA CellType.NUMBER
 	EQK
@@ -285,8 +288,39 @@ eval_exps_while:
 eval_exps_done:
 	; if (proc.type == Lambda) {
 	LEA proc
+	CELLTYPE
+	PUSH
+	DATA CellType.Lambda
+	EQ
+	BZ eval_proc_ne_lambda
+	; a) proc.list[1] contains parameter names
+	; b) proc.list[2] contains lambda body
+	; 1) Push proc.list[2]
+	; 2) Create new environment parented to current env, using proc.list[1]
+	;    as keys and exps as values.
+	; 3) return eval(proc.list[2], newenv)
+	LEA proc
+	PUSH  ; *stack++ = proc
+	DATA $2
+	CELLINDEX ; a = *stack[a] (proc)
+	PUSH  ; *stack++ = proc.list[2]
+	SWITCH ; switch *stack and *stack-1 (get back to proc)
+	DATA $1
+	CELLINDEX ; a = *stack[a] (proc)
+	ADJ 1 ; remove proc from stack
+	PUSH  ; *stack++ = proc.list[1]
+	LEA exps
+	PUSH  ; *stack++ = env
+	LEA env
+	ENVNEW; A = new env(*stack-2, *stack-1, *stack.Environment)
+	ADJ 2 ; remove proc.list[1] and exps
+	PUSH  ; *stack++ = newenv
+	JSR eval
+	LEAVE
+
+eval_proc_ne_lambda:
 	
-; end proc eval
+; ======== end proc eval
 
 ; eval_if: determine result of (if test conseq [alt]).
 ;          Uses 3 local variables, so is not part of eval to reduce stack usage.
