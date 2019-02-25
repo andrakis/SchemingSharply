@@ -290,7 +290,7 @@ eval_exps_done:
 	LEA proc
 	CELLTYPE
 	PUSH
-	DATA CellType.Lambda
+	DATA CellType.LAMBDA
 	EQ
 	BZ eval_proc_ne_lambda
 	; a) proc.list[1] contains parameter names

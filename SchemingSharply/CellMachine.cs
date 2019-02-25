@@ -740,6 +740,7 @@ namespace SchemingSharply
 							state.StrWords.Add(word.Substring(0, word.Length - 1));
 							string str = string.Join(" ", state.StrWords);
 							position = builder.Add(builder.Data(str));
+							state.Status = AssembleStatus.NONE;
 						} else if (state.Status == AssembleStatus.IN_STRING) {
 							state.StrWords.Add(word);
 						} else if (word.StartsWith("\"")) {
