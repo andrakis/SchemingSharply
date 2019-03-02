@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -462,10 +463,10 @@ namespace SchemingSharply
 				string eval = System.IO.File.ReadAllText("../../Core/Eval.asm");
 				string entry = "main";
 				CellMachineAssembler assembler = new CellMachineAssembler(eval, entry);
-				CodeResult result;
+				CodeResult cr;
 
 				try {
-					result = CellMachineAssembler.Assemble(eval, entry);
+					cr = CellMachineAssembler.Assemble(eval, entry);
 				} catch (Exception e) {
 					Console.WriteLine("Failed to assemble: {0}", e.Message);
 #if DEBUG
@@ -475,26 +476,55 @@ namespace SchemingSharply
 					return;
 				}
 
-				List<Cell> args = new List<Cell>();
+#if DEBUG
+				Console.WriteLine("Compiled Core/Eval.asm, {0} bytes into:", eval.Length);
+				Console.WriteLine("  Code: {0} instructions ({1} bytes)", cr.Code.Count, cr.Code.Count * sizeof(int));
+				int wordlength = 0;
+				foreach (Cell c in cr.Data) wordlength += c.Value.Length;
+				Console.WriteLine("  Data: {0} elements ({1} bytes)", cr.Data.Count, wordlength);
+#endif
 
 				string code = ""
 				 + "(begin "
 				 + "   (define fac (lambda (n) (if (<= n 1) 1 (* n (fac (- n 1))))))"
 				 + "   (print (fac 10)))";
+				AssertEqual(Eval(StandardRuntime.True.Value, cr), StandardRuntime.True);
+				AssertEqual(Eval("1", cr), new Cell(1));
+				AssertEqual(Eval(new Cell(new Cell[] { }), cr), StandardRuntime.Nil);
+				AssertEqual(Eval("()", cr), StandardRuntime.Nil);
+			}
+
+			public static void AssertEqual (Cell a, Cell b, string message = null) {
+				if (message == null)
+					message = string.Format("{0} != {1}", a, b);
+				if (a != b)
+					Debug.Assert(false, message);
+			}
+
+			public static Cell Eval(string code, CodeResult cr) {
 				Cell codeCell = StandardRuntime.Read(code);
-				args.Add(codeCell);
+				return Eval(codeCell, cr);
+			}
+
+			public static Cell Eval(Cell code, CodeResult cr) {
+				List<Cell> args = new List<Cell>();
+				args.Add(code);
 
 				SchemeEnvironment env = new SchemeEnvironment();
 				StandardRuntime.AddGlobals(env);
 				args.Add(new Cell(env));
 
-				Machine machine = new Machine(result, args);
+				Machine machine = new Machine(cr, args);
 
 				int steps = 0;
 				while(machine.Finished == false) { // && steps++ < 10) {
 					machine.Step();
+#if DEBUG
 					machine.PrintState();
+#endif
 				}
+
+				return machine.A;
 			}
 		}
 

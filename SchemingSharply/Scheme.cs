@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -35,19 +36,23 @@ namespace SchemingSharply.Scheme
 		ENVPTR
 	}
 
-	public interface ICell
+	public interface IAbstractCell : IEnumerable<Cell>, IEnumerable<char>
+	{
+		int ToInteger();
+	}
+
+	public interface ICell : IAbstractCell
 	{
 		CellType Type { get; }
 		string Value { get; }
 		List<Cell> ListValue { get; }
 		SchemeEnvironment Environment { get; set; }
 
-		int ToInteger();
 		Cell Head();
 		Cell Tail();
 	}
 
-	public struct Cell
+	public struct Cell : ICell
 	{
 		public delegate Cell CellProc(Cell[] args);
 
@@ -152,6 +157,10 @@ namespace SchemingSharply.Scheme
 			var cells2 = cells.ConvertAll((c) => (string)c);
 			return "(" + string.Join(" ", cells2) + ")";
 		}
+
+		public IEnumerator<Cell> GetEnumerator() => ListValue.GetEnumerator();
+		IEnumerator<char> IEnumerable<char>.GetEnumerator() => Value.GetEnumerator();
+		IEnumerator IEnumerable.GetEnumerator() => ListValue.GetEnumerator();
 
 		public static explicit operator string(Cell c)
 		{

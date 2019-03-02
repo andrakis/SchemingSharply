@@ -9,8 +9,9 @@ using SchemingSharply.StackMachine;
 namespace SchemingSharply {
 	public class Program
 	{
-		static void Main(string[] args)
-		{
+		static void Main(string[] args) {
+			System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+			sw.Start();
 			//TestScheme();
 			//TestVM();
 			//SchemingSharply.CellMachine.Machine.Test1();
@@ -19,6 +20,8 @@ namespace SchemingSharply {
 
 			if (System.Diagnostics.Debugger.IsAttached)
 			{
+				sw.Stop();
+				Console.Error.WriteLine("[DEBUG] Code run in {0}", sw.Elapsed);
 				Console.WriteLine("[DEBUG] Press ENTER to end.");
 				Console.ReadLine();
 			}
