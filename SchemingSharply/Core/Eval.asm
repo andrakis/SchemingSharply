@@ -62,13 +62,11 @@ eval:
 !define exps -3
 !define proc -4
 	ENTER 5
-	DATA "Foo"
-	PRINT
 	LEA x ; get x
 	CELLTYPE ; get cell type
 	PUSH ; leave on stack
 	; if (typeof x == Symbol)
-	DATA CellType.STRING
+	DATA $CellType.STRING
 	EQK
 	BZ if_x_ne_symbol
 	;   return env[x];
@@ -78,9 +76,8 @@ eval:
 	ENVLOOKUP ; A = cell.env[A]
 	LEAVE
 if_x_ne_symbol:
-	HALTMSG "x != symbol"
 	; if (typeof x == Number)
-	DATA CellType.NUMBER
+	DATA $CellType.NUMBER
 	EQK
 	BZ if_x_ne_number
 	;   return x;
@@ -102,6 +99,7 @@ if_x_ne_number:
 	LEAVE
 
 if_xcount_ne_0:
+	HALTMSG "xcount != 0"
 	; xl0 = x.list[0]
 	LEA x
 	PUSH
@@ -113,7 +111,7 @@ if_xcount_ne_0:
 	CELLTYPE ; stack = x.list[0].type
 	PUSH
 	; if (typeof xl0 == Symbol) {
-	DATA CellType.STRING
+	DATA $CellType.STRING
 	EQ
 	BZ if_xl0_ne_symbol
 	;   if (xl0 == "quote")
@@ -202,7 +200,7 @@ if_xl0_ne_define:
 	; x.type = Lambda
 	LEA x
 	PUSH ; copy x to stack for modification
-	DATA CellType.LAMBDA
+	DATA $CellType.LAMBDA
 	CELLSETTYPE
 	; x.env = env
 	LEA env ; x is still on stack
@@ -255,7 +253,7 @@ if_xl0_ne_symbol:
 	JSR eval
 	;ADJ 2 ; remove from stack
 	; exps = new Cell(List)
-	DATA CellType.LIST
+	DATA $CellType.LIST
 	CELLNEW
 	SEA exps
 	; while(x.listvalue.count > 0) {
@@ -290,7 +288,7 @@ eval_exps_done:
 	LEA proc
 	CELLTYPE
 	PUSH
-	DATA CellType.LAMBDA
+	DATA $CellType.LAMBDA
 	EQ
 	BZ eval_proc_ne_lambda
 	; a) proc.list[1] contains parameter names
@@ -393,5 +391,4 @@ main:
 	LEA Env
 	PUSH
 	JSR eval
-	DATA 0
-	EXIT
+	EXIT 0

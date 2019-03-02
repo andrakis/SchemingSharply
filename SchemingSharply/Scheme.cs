@@ -210,10 +210,10 @@ namespace SchemingSharply.Scheme
 
 		public static bool operator ==(Cell a, Cell b)
 		{
-			if (a.Type != b.Type) return false;
 			switch(a.Type)
 			{
 				case CellType.STRING:
+				case CellType.NUMBER:
 					return a.Value == b.Value;
 				case CellType.LIST:
 				case CellType.LAMBDA:
@@ -356,6 +356,9 @@ namespace SchemingSharply.Scheme
 
 		public static void AddGlobals(SchemeEnvironment e)
 		{
+			e.Insert(StandardRuntime.False.Value, StandardRuntime.False);
+			e.Insert(StandardRuntime.True.Value, StandardRuntime.True);
+			e.Insert(StandardRuntime.Nil.Value, StandardRuntime.Nil);
 			e.Insert("+", new Cell(Plus)); e.Insert("-", new Cell(Minus));
 			e.Insert("*", new Cell(Multiply));
 			e.Insert("<", new Cell(LessThan)); e.Insert("<=", new Cell(LessThanEqual));

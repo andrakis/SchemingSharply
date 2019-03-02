@@ -753,9 +753,10 @@ namespace SchemingSharply
 								state.Status = AssembleStatus.IN_STRING;
 							}
 						} else if (word.StartsWith("$")) {
-							if (int.TryParse(word.Substring(1), out value)) {
-								position = builder.Add(builder.Data(value));
-							} else throw new InvalidOperationException("Invalid usage of $ operator");
+							if (!int.TryParse(word.Substring(1), out value)) {
+								value = assembleValue(word.Substring(1));							
+							}
+							position = builder.Add(builder.Data(value));
 						} else if (int.TryParse(word, out value)) {
 							position = builder.Add(value);
 						} else if (word.EndsWith(":")) { // label
