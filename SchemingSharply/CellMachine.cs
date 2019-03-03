@@ -107,10 +107,10 @@ namespace SchemingSharply
 		{
 			//protected IList<Cell> Stack;  // 
 			protected Cell[] Stack;
-			protected int SP;             // Stack pointer
-			protected int BP;             // Base pointer
-			protected int PC;             // Program counter
-			protected Cell A;             // Accumulator
+			public int SP;             // Stack pointer
+			public int BP;             // Base pointer
+			public int PC;             // Program counter
+			public Cell A;             // Accumulator
 			protected IList<int> Code;    // Code
 			protected IList<Cell> Data;   // Data
 			protected readonly int Entry; // Initial PC value
@@ -157,7 +157,7 @@ namespace SchemingSharply
 				if (ins.HasArgument()) {
 					o += " " + Code[PC].ToString();
 				}
-				Console.Write("!ins {0,-10}", o);
+				Console.Write("!ins {0,-12}", o);
 				Console.Write("state: ");
 				PrintStateLine();
 #endif
@@ -347,7 +347,9 @@ namespace SchemingSharply
 
 					case OpCode.EXIT:
 						finished = true;
+#if DEBUG
 						Console.WriteLine("!Exit with code {0}", A);
+#endif
 						break;
 
 					default:

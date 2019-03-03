@@ -36,7 +36,7 @@ namespace SchemingSharply.Scheme
 		ENVPTR
 	}
 
-	public interface IAbstractCell : IEnumerable<Cell>, IEnumerable<char>
+	public interface IAbstractCell// : IEnumerable<Cell>, IEnumerable<char>
 	{
 		int ToInteger();
 	}
@@ -121,6 +121,14 @@ namespace SchemingSharply.Scheme
 			Environment = envptr;
 		}
 
+		public Cell (Cell other) {
+			Type = other.Type;
+			Value = other.Value;
+			ListValue = other.ListValue;
+			ProcValue = other.ProcValue;
+			Environment = other.Environment;
+		}
+
 		public override bool Equals(object obj) => base.Equals(obj);
 		public override int GetHashCode() => base.GetHashCode();
 		public override string ToString() => (string)this;
@@ -159,8 +167,6 @@ namespace SchemingSharply.Scheme
 		}
 
 		public IEnumerator<Cell> GetEnumerator() => ListValue.GetEnumerator();
-		IEnumerator<char> IEnumerable<char>.GetEnumerator() => Value.GetEnumerator();
-		IEnumerator IEnumerable.GetEnumerator() => ListValue.GetEnumerator();
 
 		public static explicit operator string(Cell c)
 		{
@@ -238,10 +244,14 @@ namespace SchemingSharply.Scheme
 		}
 	}
 
-	public class CellNameNotFound : Exception
-	{
+	public class CellNameNotFound : Exception {
 		public CellNameNotFound(string name)
-			: base(name) { }
+			: base("Cell name not found: " + name) { }
+	}
+
+	public class MissingCloseParenException : Exception {
+		public MissingCloseParenException()
+			: base("Missing close parenthese: )") { }
 	}
 
 	public class SchemeEnvironment
@@ -428,6 +438,8 @@ namespace SchemingSharply.Scheme
 				while (tokens.First() != ")")
 				{
 					cells.Add(ReadFrom(tokens));
+					if (tokens.Count() == 0)
+						throw new MissingCloseParenException();
 				}
 				tokens.RemoveAt(0);
 				return new Cell(cells);
