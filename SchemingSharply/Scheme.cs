@@ -380,7 +380,7 @@ namespace SchemingSharply.Scheme
 			e.Insert("+", new Cell(Plus)); e.Insert("-", new Cell(Minus));
 			e.Insert("*", new Cell(Multiply));
 			e.Insert("<", new Cell(LessThan)); e.Insert("<=", new Cell(LessThanEqual));
-			e.Insert("==", new Cell(Equal));
+			e.Insert("=", new Cell(Equal)); e.Insert("==", new Cell(Equal));
 			e.Insert("print", new Cell(Print));
 		}
 

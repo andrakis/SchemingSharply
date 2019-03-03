@@ -508,7 +508,7 @@ namespace SchemingSharply
 				string code = ""
 				 + "(begin "
 				 + "   (define fac (lambda (n) (if (<= n 1) 1 (* n (fac (- n 1))))))"
-				 + "   (print (fac 10)))";
+				 + "   (fac 10))";
 				if (1 == 1) AssertEqual(Eval(StandardRuntime.True.Value, cr, env), StandardRuntime.True);
 				if (1 == 1) AssertEqual(Eval("1", cr, env), new Cell(1));
 				if (1 == 1) AssertEqual(Eval(new Cell(new Cell[] { }), cr, env), StandardRuntime.Nil);
@@ -522,7 +522,12 @@ namespace SchemingSharply
 				if (1 == 1) AssertEqual(Eval("(begin (define y 789) y)", cr, env), new Cell(789));
 				if (1 == 1) AssertEqual(Eval("(+ 1 2)", cr, env), new Cell(3));
 				if (1 == 1)
-					AssertEqual(Eval("(begin (define a (lambda (x y) (+ x y))) (a 1 2))", cr, env), new Cell(3));
+					AssertEqual(Eval("(begin (define add (lambda (x y) (+ x y))) (add 1 2))", cr, env), new Cell(3));
+				if (1 == 1) AssertEqual(Eval("(if (= 1 1) 1 0)", cr, env), new Cell("1"));
+				if (1 == 1) AssertEqual(Eval("(if (= 0 1) 0 1)", cr, env), new Cell("1"));
+				if (1 == 1) AssertEqual(Eval("(if (= 1 1) 1)", cr, env), new Cell("1"));
+				if (1 == 1) AssertEqual(Eval("(if (= 1 0) 1)", cr, env), StandardRuntime.Nil);
+				if (1 == 1) AssertEqual(Eval(code, cr, env), new Cell(3628800));
 			}
 
 			public static void AssertEqual (Cell a, Cell b, string message = null) {

@@ -130,8 +130,8 @@ if_xl0_ne_quote:
 	EQK ; keep xl0 on stack
 	BZ if_xl0_ne_if
 	;     return eval_if(x, env)
-	LEA env PUSH
 	LEA x PUSH
+	LEA env PUSH
 	JSR eval_if
 	LEAVE
 
@@ -368,7 +368,6 @@ eval_if:
 	;int parts = 6, targetenv = 5, test = 4, conseq = 3, alt = 2;
 eval_if:
 	ENTER 3
-	HALTMSG "eval_if"
 	;  test = eval(parts.list[1], targetenv)
 	LEA parts
 	PUSH   ; stack++ = parts
@@ -380,17 +379,18 @@ eval_if:
 	PUSH   ; stack++ = targetenv
 	JSR eval
 	SEA test ; test = A
+	ADJ 2
 	;  conseq = parts.list[2]
 	LEA parts
 	PUSH   ; stack++ = parts
 	DATA $2
 	CELLINDEX  ; leaving *stack == parts
 	SEA conseq
-	;  if parts.listcount < 4
+	;  if parts.listcount <= 3
 	PEEK      ; copy *stack into A
 	CELLCOUNT ; get cell count of A
 	PUSH      ; push count on to stack
-	DATA $4
+	DATA $3
 	LE        ; stack now has parts after comparison
 	BZ eval_if_has_alt
 	;    alt = nil
@@ -409,11 +409,16 @@ eval_if_store_alt:
 	PUSH
 	DATA StandardRuntime.False
 	EQ
-	BZ eval_conseq
+	BZ eval_if_conseq
 	LEA alt
-	LEAVE
-eval_conseq:
+	JMP eval_if_dosub
+eval_if_conseq:
 	LEA conseq
+	; fall through
+eval_if_dosub:
+	PUSH
+	LEA targetenv PUSH
+	JSR eval
 	LEAVE
 
 ; main (Code, Env)
