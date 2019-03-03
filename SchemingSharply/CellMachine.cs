@@ -153,12 +153,13 @@ namespace SchemingSharply
 
 			public void Execute(OpCode ins) {
 #if DEBUG
-				Console.Write("!ins {0}", typeof(OpCode).GetEnumName(ins));
-				if(ins.HasArgument())
-				{
-					Console.Write(" {0}", Code[PC]);
+				string o = typeof(OpCode).GetEnumName(ins);
+				if (ins.HasArgument()) {
+					o += " " + Code[PC].ToString();
 				}
-				Console.WriteLine();
+				Console.Write("!ins {0,-10}", o);
+				Console.Write("state: ");
+				PrintStateLine();
 #endif
 
 				switch(ins)
@@ -363,6 +364,10 @@ namespace SchemingSharply
 					Console.WriteLine("  Stack[{0}] = {1}", i, Stack[i++]);
 			}
 
+			public void PrintStateLine() {
+				Console.WriteLine("SP: {0,-5} BP: {1,-5} PC: {2,-4} A: {3}", SP, BP, PC, A);
+			}
+
 			public static void Test1 ()
 			{
 				CodeBuilder code = new CodeBuilder();
@@ -553,12 +558,14 @@ namespace SchemingSharply
 
 				try {
 					int steps = 0;
+					System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+					sw.Start();
 					while (machine.Finished == false) { // && steps++ < 10) {
 						machine.Step();
-#if DEBUG
-						machine.PrintState();
-#endif
+						//machine.PrintState();
 					}
+					sw.Stop();
+					Console.WriteLine("!Eval ran in {0}", sw.Elapsed);
 				} catch (Exception e) {
 					Debug.WriteLine("Eval failed: {0}", e.Message);
 				}
