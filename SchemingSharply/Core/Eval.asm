@@ -376,8 +376,9 @@ eval_exps_done:
 	CELLTYPE
 	PUSH
 	DATA $CellType.LAMBDA
-	EQ
+	EQK
 	BZ eval_proc_ne_lambda
+	ADJ 1
 	; a) proc.list[1] contains parameter names
 	; b) proc.list[2] contains lambda body
 	; 1) Push proc.list[2]
@@ -409,11 +410,30 @@ eval_exps_done:
 
 eval_proc_ne_lambda:
 	; return proc.ProcValue(exps)
-	LEA exps
-	PUSH
+	DATA $CellType.PROC
+	EQK
+	BZ eval_proc_ne_proc
+	ADJ 1
+	LEA exps PUSH
 	LEA proc
 	CELLINVOKE
 	LEAVE
+
+eval_proc_ne_proc:
+	; return proc.ProcValueEnv(exps, env)
+	DATA $CellType.PROCENV
+	EQK
+	BZ eval_proc_ne_procenv
+	ADJ 1
+	LEA exps PUSH
+	LEA env PUSH
+	LEA proc
+	CELLINVENV
+	LEAVE
+
+eval_proc_ne_procenv:
+	STATE
+	HALTMSG "Unknown type in eval at proc stage"
 	
 ; ======== end proc eval
 

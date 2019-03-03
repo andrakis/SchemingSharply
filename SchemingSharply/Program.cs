@@ -35,13 +35,29 @@ namespace SchemingSharply {
 			StandardRuntime.AddGlobals(env);
 
 			List<Cell> history = new List<Cell>();
+			bool quit = false;
+
 			// Add a function to get a history result
 			env.Insert("h", new Cell(args => new Cell(history[(int)(args[0])])));
+			env.Insert("eval", new Cell((args, subenv) => {
+				if (args.Length > 1)
+					subenv = args[1].Environment;
+				return DoEval(new Cell(args[0]), evalCodeResult, subenv);
+			}));
+			env.Insert("env", new Cell((args, subenv) => new Cell(subenv)));
+			env.Insert("str", new Cell(args => new Cell(args[0].ToString())));
+			env.Insert("env-str", new Cell(args => new Cell(args[0].Environment.ToString())));
+			env.Insert("exit", new Cell(args => { quit = true; return StandardRuntime.Nil; }));
+			env.Insert("quit", env.Lookup(new Cell("exit")));
 
 			Console.WriteLine("SchemingSharply v {0}", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version);
 			Console.WriteLine("Type `quit' to quit");
+			Console.WriteLine("Type `(env-str (env))' to display environment");
+			Console.WriteLine("Use `(eval expr)' or `(eval expr (env))' for testing");
+			Console.WriteLine("Use `(h n)' to view history item n");
+			Console.WriteLine();
 
-			for (; ;) {
+			while(!quit) { 
 				int index = history.Count;
 				Console.Write("{0}> ", index);
 				string entry = Console.ReadLine().Trim();

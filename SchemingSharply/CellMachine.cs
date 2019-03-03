@@ -66,6 +66,7 @@ namespace SchemingSharply
 			CELLPUSH,   // *Stack.Push(A)
 			CELLSETTYPE,// *Stack.Type = A
 			CELLINVOKE, // A = A.ProcValue(*Stack++)
+			CELLINVENV, // A = A.ProcValueEnv(*Stack[SP+1], *Stack[SP++])
 			CELLHEAD,   // A = *Stack.Head
 			CELLTAIL,   // A = *Stack.Tail
 			ENVLOOKUP,  // A = A.Environment[*Stack++]
@@ -291,6 +292,10 @@ namespace SchemingSharply
 
 					case OpCode.CELLINVOKE:
 						A = A.ProcValue(Stack[SP++].ListValue.ToArray());
+						break;
+
+					case OpCode.CELLINVENV:
+						A = A.ProcEnvValue(Stack[SP + 1].ListValue.ToArray(), Stack[SP].Environment);
 						break;
 
 					case OpCode.CELLHEAD:

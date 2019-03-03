@@ -31,6 +31,11 @@ namespace SchemingSharply.Scheme
 		/// </summary>
 		PROC,
 		/// <summary>
+		///   Cell is a pointer to a C#  function, signature:
+		///   delegate Cell CellProcEnv(Cell[] args, SchemeEnvironment env)
+		/// </summary>
+		PROCENV,
+		/// <summary>
 		///   Cell is a pointer to an environment
 		/// </summary>
 		ENVPTR
@@ -55,6 +60,7 @@ namespace SchemingSharply.Scheme
 	public struct Cell : ICell
 	{
 		public delegate Cell CellProc(Cell[] args);
+		public delegate Cell CellProcEnv(Cell[] args, SchemeEnvironment env);
 
 		public static string NilValue = "#nil";
 		public static string TrueValue = "#true";
@@ -64,6 +70,7 @@ namespace SchemingSharply.Scheme
 		public string Value { get; }
 		public List<Cell> ListValue { get; }
 		public CellProc ProcValue { get; }
+		public CellProcEnv ProcEnvValue { get; }
 		public SchemeEnvironment Environment { get; set; }
 
 		public Cell(string value, CellType type = CellType.STRING)
@@ -73,6 +80,7 @@ namespace SchemingSharply.Scheme
 			ListValue = new List<Cell>();
 			if (Value == null) Value = NilValue;
 			ProcValue = null;
+			ProcEnvValue = null;
 			Environment = null;
 		}
 
@@ -92,6 +100,7 @@ namespace SchemingSharply.Scheme
 			Value = "";
 			ListValue = list.ToList();
 			ProcValue = null;
+			ProcEnvValue = null;
 			Environment = null;
 		}
 
@@ -101,6 +110,17 @@ namespace SchemingSharply.Scheme
 			Value = "";
 			ListValue = new List<Cell>();
 			ProcValue = proc;
+			ProcEnvValue = null;
+			Environment = null;
+		}
+
+		public Cell(CellProcEnv proc)
+		{
+			Type = CellType.PROCENV;
+			Value = "";
+			ListValue = new List<Cell>();
+			ProcValue = null;
+			ProcEnvValue = proc;
 			Environment = null;
 		}
 
@@ -110,6 +130,7 @@ namespace SchemingSharply.Scheme
 			Value = "";
 			ListValue = new List<Cell>();
 			ProcValue = null;
+			ProcEnvValue = null;
 			Environment = null;
 		}
 
@@ -118,6 +139,7 @@ namespace SchemingSharply.Scheme
 			Value = "";
 			ListValue = new List<Cell>();
 			ProcValue = null;
+			ProcEnvValue = null;
 			Environment = envptr;
 		}
 
@@ -126,6 +148,7 @@ namespace SchemingSharply.Scheme
 			Value = other.Value;
 			ListValue = other.ListValue;
 			ProcValue = other.ProcValue;
+			ProcEnvValue = other.ProcEnvValue;
 			Environment = other.Environment;
 		}
 
@@ -176,6 +199,8 @@ namespace SchemingSharply.Scheme
 					return c.Value;
 				case CellType.PROC:
 					return "#Proc";
+				case CellType.PROCENV:
+					return "#ProcEnv";
 				case CellType.LIST:
 					return listToString(c.ListValue);
 				case CellType.LAMBDA:
