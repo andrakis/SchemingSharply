@@ -569,7 +569,6 @@ namespace SchemingSharply
 					sw.Start();
 					while (machine.Finished == false) { // && steps++ < 10) {
 						machine.Step();
-						machine.PrintState();
 					}
 					sw.Stop();
 					Console.WriteLine("!Eval ran in {0}", sw.Elapsed);

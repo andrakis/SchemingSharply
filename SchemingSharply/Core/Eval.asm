@@ -61,7 +61,10 @@ eval:
 !define i    -2
 !define exps -3
 !define proc -4
-	ENTER 5
+!define test -5
+!define conseq -6
+!define alt -7
+	ENTER 7
 ; tail recursive entry
 eval_tail_recurse:
 	LEA x ; get x
@@ -136,11 +139,57 @@ if_xl0_ne_quote:
 	BZ if_xl0_ne_if
 	ADJ 1 ; remove compared item
 	;     return eval_if(x, env)
-	LEA x PUSH
-	LEA env PUSH
-	JSR eval_if
+	;  test = eval(x.list[1], env)
+	LEA x
+	PUSH   ; stack++ = parts
+	DATA $1
+	CELLINDEX
+	ADJ 1 ; remove parts from stack
+	PUSH   ; stack++ = parts.list[1]
+	LEA env
+	PUSH   ; stack++ = targetenv
+	JSR eval
+	SEA test ; test = A
 	ADJ 2
-	SEA x ; store result into x and recurse
+	;  conseq = parts.list[2]
+	LEA x
+	PUSH   ; stack++ = parts
+	DATA $2
+	CELLINDEX  ; leaving *stack == parts
+	SEA conseq
+	;  if parts.listcount <= 3
+	PEEK      ; copy *stack into A
+	CELLCOUNT ; get cell count of A
+	PUSH      ; push count on to stack
+	DATA $3
+	LE        ; stack now has parts after comparison
+	BZ eval_if_has_alt
+	;    alt = nil
+	DATA StandardRuntime.Nil
+	JMP eval_if_store_alt
+	;  else
+eval_if_has_alt:
+	;    alt = x.list[3]
+	DATA $3
+	CELLINDEX
+eval_if_store_alt:
+	; (save into alt)
+	SEA alt
+	ADJ 1
+	;  return test == false ? alt : conseq
+	LEA test
+	PUSH
+	DATA StandardRuntime.False
+	EQ
+	BZ eval_if_conseq
+	LEA alt
+	JMP eval_if_dosub
+eval_if_conseq:
+	LEA conseq
+	; fall through
+eval_if_dosub:
+	; tail recurse
+	SEA x
 	JMP eval_tail_recurse
 
 if_xl0_ne_if:
@@ -367,74 +416,6 @@ eval_proc_ne_lambda:
 	LEAVE
 	
 ; ======== end proc eval
-
-; eval_if: determine result of (if test conseq [alt]).
-;          Uses 3 local variables, so is not part of eval to reduce stack usage.
-; func eval_if(parts, targetenv)
-;    locals: test, conseq, alt
-eval_if:
-!define parts      3
-!define targetenv  2
-!define test      -1
-!define conseq    -2
-!define alt       -3
-	;int parts = 6, targetenv = 5, test = 4, conseq = 3, alt = 2;
-eval_if:
-	ENTER 3
-	;  test = eval(parts.list[1], targetenv)
-	LEA parts
-	PUSH   ; stack++ = parts
-	DATA $1
-	CELLINDEX
-	ADJ 1 ; remove parts from stack
-	PUSH   ; stack++ = parts.list[1]
-	LEA targetenv
-	PUSH   ; stack++ = targetenv
-	JSR eval
-	SEA test ; test = A
-	ADJ 2
-	;  conseq = parts.list[2]
-	LEA parts
-	PUSH   ; stack++ = parts
-	DATA $2
-	CELLINDEX  ; leaving *stack == parts
-	SEA conseq
-	;  if parts.listcount <= 3
-	PEEK      ; copy *stack into A
-	CELLCOUNT ; get cell count of A
-	PUSH      ; push count on to stack
-	DATA $3
-	LE        ; stack now has parts after comparison
-	BZ eval_if_has_alt
-	;    alt = nil
-	DATA StandardRuntime.Nil
-	JMP eval_if_store_alt
-	;  else
-	;PUSH
-eval_if_has_alt:
-	;    alt = parts.list[3]
-	DATA $3
-	CELLINDEX
-eval_if_store_alt:
-	; (save into alt)
-	SEA alt
-	;  return test == false ? alt : conseq
-	LEA test
-	PUSH
-	DATA StandardRuntime.False
-	EQ
-	BZ eval_if_conseq
-	LEA alt
-	JMP eval_if_dosub
-eval_if_conseq:
-	LEA conseq
-	; fall through
-eval_if_dosub:
-	PUSH
-	LEA targetenv PUSH
-	JSR eval
-	ADJ 2
-	LEAVE
 
 ; main (Code, Env)
 main:

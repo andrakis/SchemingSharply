@@ -51,6 +51,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="Scheme\Eval.scm" />
+    <None Include="Scheme\Test1.scm" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Core\Eval.asm" />
