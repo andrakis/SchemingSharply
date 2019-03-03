@@ -382,16 +382,21 @@ namespace SchemingSharply.Scheme
 			return Nil;
 		}
 
+		public static Cell Head(Cell[] args) => args[0].Head();
+		public static Cell Tail(Cell[] args) => args[0].Tail();
+
+		public static Cell Nullp(Cell[] args) => (args[0].ListValue.Count == 0) ? True : False;
+
 		public static void AddGlobals(SchemeEnvironment e)
 		{
-			e.Insert(StandardRuntime.False.Value, StandardRuntime.False);
-			e.Insert(StandardRuntime.True.Value, StandardRuntime.True);
-			e.Insert(StandardRuntime.Nil.Value, StandardRuntime.Nil);
+			e.Insert(False.Value, False); e.Insert(True.Value, True); e.Insert(Nil.Value, Nil);
 			e.Insert("+", new Cell(Plus)); e.Insert("-", new Cell(Minus));
 			e.Insert("*", new Cell(Multiply));
 			e.Insert("<", new Cell(LessThan)); e.Insert("<=", new Cell(LessThanEqual));
 			e.Insert("=", new Cell(Equal)); e.Insert("==", new Cell(Equal));
 			e.Insert("print", new Cell(Print));
+			e.Insert("head", new Cell(Head)); e.Insert("tail", new Cell(Tail));
+			e.Insert("null?", new Cell(Nullp));
 		}
 
 		public static List<string> Tokenise (string str)

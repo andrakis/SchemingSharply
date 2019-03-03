@@ -43,6 +43,7 @@ namespace SchemingSharply
 			BZ,     // Branch to next code position's value if A == 0
 			[HasArgument]
 			BNZ,    // Branch to next code position's value if A != 0
+			[HasArgument]
 			JMP,    // Unconditonal branch to next code position's value
 			LT,     // A = *Stack++ <  A
 			LTK,    // A = *Stack   <  A
@@ -359,9 +360,9 @@ namespace SchemingSharply
 
 			public void PrintState()
 			{
-				Console.WriteLine("!DEBUG STATE:");
-				Console.WriteLine("  SP: {0} BP: {1}", SP, BP);
-				Console.WriteLine("  PC: {0}  A: {1}", PC, A);
+				//Console.WriteLine("!DEBUG STATE:");
+				//Console.WriteLine("  SP: {0} BP: {1}", SP, BP);
+				//Console.WriteLine("  PC: {0}  A: {1}", PC, A);
 				for (int i = SP; i < Stack.Length - 1;)
 					Console.WriteLine("  Stack[{0}] = {1}", i, Stack[i++]);
 			}
@@ -535,6 +536,10 @@ namespace SchemingSharply
 				if (1 == 1) AssertEqual(Eval("(if (= 1 1) 1)", cr, env), new Cell("1"));
 				if (1 == 1) AssertEqual(Eval("(if (= 1 0) 1)", cr, env), StandardRuntime.Nil);
 				if (1 == 1) AssertEqual(Eval(code, cr, env), new Cell(3628800));
+				if (1 == 1)
+					AssertEqual(Eval("(if (= 1 1) (+ 1 1) (- 1 1))", cr, env), new Cell(2));
+				if (1 == 1)
+					AssertEqual(Eval("(if (= 1 1) (begin 1) (- 1 1))", cr, env), new Cell(1));
 			}
 
 			public static void AssertEqual (Cell a, Cell b, string message = null) {
@@ -564,7 +569,7 @@ namespace SchemingSharply
 					sw.Start();
 					while (machine.Finished == false) { // && steps++ < 10) {
 						machine.Step();
-						//machine.PrintState();
+						machine.PrintState();
 					}
 					sw.Stop();
 					Console.WriteLine("!Eval ran in {0}", sw.Elapsed);

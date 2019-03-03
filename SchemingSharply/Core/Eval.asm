@@ -62,6 +62,8 @@ eval:
 !define exps -3
 !define proc -4
 	ENTER 5
+; tail recursive entry
+eval_tail_recurse:
 	LEA x ; get x
 	CELLTYPE ; get cell type
 	PUSH ; leave on stack
@@ -69,6 +71,7 @@ eval:
 	DATA $CellType.STRING
 	EQK
 	BZ if_x_ne_symbol
+	ADJ 1 ; remove compared item
 	;   return env[x];
 	LEA x ; x
 	PUSH ; onto stack
@@ -80,6 +83,7 @@ if_x_ne_symbol:
 	DATA $CellType.NUMBER
 	EQK
 	BZ if_x_ne_number
+	ADJ 1 ; remove compared item
 	;   return x;
 	LEA x
 	LEAVE
@@ -117,6 +121,7 @@ if_xcount_ne_0:
 	DATA "quote"
 	EQK
 	BZ if_xl0_ne_quote
+	ADJ 1 ; remove compared item
 	;     return x.list[1]
 	LEA x
 	PUSH
@@ -129,17 +134,21 @@ if_xl0_ne_quote:
 	DATA "if"
 	EQK ; keep xl0 on stack
 	BZ if_xl0_ne_if
+	ADJ 1 ; remove compared item
 	;     return eval_if(x, env)
 	LEA x PUSH
 	LEA env PUSH
 	JSR eval_if
-	LEAVE
+	ADJ 2
+	SEA x ; store result into x and recurse
+	JMP eval_tail_recurse
 
 if_xl0_ne_if:
 	;   if (xl0 == "set!")
 	DATA "set!"
 	EQK
 	BZ if_xl0_ne_set!
+	ADJ 1 ; remove compared item
 	;     env.Set(x.list[1], eval(x.list[2], env))
 	;     env
 	LEA env
@@ -174,6 +183,7 @@ if_xl0_ne_set!:
 	DATA "define"
 	EQK
 	BZ if_xl0_ne_define
+	ADJ 1 ; remove compared item
 	;     env.Define(x.list[1], eval(x.list[2], env))
 	;     env
 	LEA env
@@ -208,6 +218,7 @@ if_xl0_ne_define:
 	DATA "lambda"
 	EQK
 	BZ if_xl0_ne_lambda
+	ADJ 1 ; remove compared item
 	; x.type = Lambda
 	LEA x
 	PUSH ; copy x to stack for modification
@@ -225,6 +236,7 @@ if_xl0_ne_lambda:
 	DATA "begin"
 	EQK
 	BZ if_xl0_ne_begin
+	ADJ 1 ; remove compared item
 	;   *stack = x[1...]
 	LEA x
 	PUSH   ; will be reused in while loop
@@ -254,12 +266,9 @@ begin_while:
 if_stacklen_not_gt1:
 	;   return eval(*stack, env)  - item to eval still on stack
 	CELLHEAD
-	PUSH
-	LEA env
-	PUSH
-	JSR eval
-	; obsolete ADJ 2
-	LEAVE
+	SEA x
+	ADJ 2
+	JMP eval_tail_recurse
 
 if_xl0_ne_begin:
 	; falls through:
@@ -342,8 +351,12 @@ eval_exps_done:
 	ENVNEW; A = new env(*stack-2, *stack-1, *stack.Environment)
 	ADJ 1 ; remove proc.list[1]
 	PUSH  ; *stack++ = newenv
-	JSR eval
-	LEAVE
+	; JSR eval
+	; LEAVE
+	POP SEA env ; put new env into env
+	POP SEA x   ; put body into x
+	ADJ 2
+	JMP eval_tail_recurse
 
 eval_proc_ne_lambda:
 	; return proc.ProcValue(exps)
@@ -397,6 +410,7 @@ eval_if:
 	DATA StandardRuntime.Nil
 	JMP eval_if_store_alt
 	;  else
+	;PUSH
 eval_if_has_alt:
 	;    alt = parts.list[3]
 	DATA $3
@@ -419,6 +433,7 @@ eval_if_dosub:
 	PUSH
 	LEA targetenv PUSH
 	JSR eval
+	ADJ 2
 	LEAVE
 
 ; main (Code, Env)
