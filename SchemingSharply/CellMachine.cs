@@ -56,7 +56,7 @@ namespace SchemingSharply
 			NEQ,    // A = *Stack++ != A
 			SUB,    // A = *Stack++  - A
 			MUL,    // A = *Stack++  * A
-			CELLNEW,    // TODO
+			CELLNEW,    // A = new Cell((CellType)A)
 			CELLTYPE,   // A = A.Type
 			CELLCOUNT,  // A = A.ListValue.Count
 			CELLINDEX,  // A = *Stack[A]
@@ -64,9 +64,9 @@ namespace SchemingSharply
 			CELLGETENV, // A = *Stack++.Environment
 			CELLPUSH,   // *Stack.Push(A)
 			CELLSETTYPE,// *Stack.Type = A
-			CELLINVOKE, // A = *Stack-1.ProcValue(*Stack++)
-			CELLHEAD,   // TODO
-			CELLTAIL,   // TODO
+			CELLINVOKE, // A = A.ProcValue(*Stack++)
+			CELLHEAD,   // A = *Stack.Head
+			CELLTAIL,   // A = *Stack.Tail
 			ENVLOOKUP,  // A = A.Environment[*Stack++]
 			ENVSET,     // *Stack-1.Environment[*Stack++] = A
 			ENVDEFINE,  // *Stack-1.Environment[*Stack++] = A
@@ -226,6 +226,10 @@ namespace SchemingSharply
 						A = new Cell(((int)Stack[SP++] <= (int)A) ? 1 : 0);
 						break;
 
+					case OpCode.GT:
+						A = new Cell(((int)Stack[SP++] > (int)A) ? 1 : 0);
+						break;
+
 					case OpCode.EQ:
 						A = new Cell((Stack[SP++] == A) ? 1 : 0);
 						break;
@@ -267,6 +271,10 @@ namespace SchemingSharply
 						A = Stack[SP++] * A;
 						break;
 
+					case OpCode.CELLNEW:
+						A = new Cell((CellType)(int)A);
+						break;
+
 					case OpCode.CELLTYPE:
 						A = new Cell((int)A.Type);
 						break;
@@ -280,7 +288,19 @@ namespace SchemingSharply
 						break;
 
 					case OpCode.CELLINVOKE:
-						A = Stack[SP - 1].ProcValue(Stack[SP].ListValue.ToArray());
+						A = A.ProcValue(Stack[SP++].ListValue.ToArray());
+						break;
+
+					case OpCode.CELLHEAD:
+						A = Stack[SP].Head();
+						break;
+
+					case OpCode.CELLTAIL:
+						A = Stack[SP].Tail();
+						break;
+
+					case OpCode.CELLPUSH:
+						Stack[SP].ListValue.Add(A);
 						break;
 
 					case OpCode.CELLSETTYPE:
@@ -499,6 +519,9 @@ namespace SchemingSharply
 				if (1 == 1) AssertEqual(Eval("(set! x 456)", cr, env), new Cell(456));
 				if (1 == 1) AssertEqual(Eval("x", cr, env), new Cell(456));
 				if (1 == 1) AssertEqual(Eval("(lambda (x y) (+ x y))", cr, env), new Cell("#Lambda((x y) (+ x y))"));
+				if (1 == 1) AssertEqual(Eval("(begin (define y 789) y)", cr, env), new Cell(789));
+				if (1 == 1) AssertEqual(Eval("(+ 1 2)", cr, env), new Cell(3));
+				
 			}
 
 			public static void AssertEqual (Cell a, Cell b, string message = null) {

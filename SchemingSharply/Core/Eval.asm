@@ -223,34 +223,43 @@ if_xl0_ne_define:
 	;   }
 
 if_xl0_ne_lambda:
-	HALTMSG "xl0 != lambda"
 	DATA "begin"
 	EQK
 	BZ if_xl0_ne_begin
 	;   *stack = x[1...]
 	LEA x
 	PUSH   ; will be reused in while loop
+	CELLTAIL
+	PUSH
 	;   while(*stack.length > 1)
 begin_while:
-	CELLCOUNT ; a = *stack.listvalue.length
+	PEEK
+	CELLCOUNT ; a = *a.listvalue.length
 	PUSH ; *++stack = stack.length
 	DATA $1 ; a = 1
 	GT ; a = *stack > 1
 	BZ if_stacklen_not_gt1
 	;     eval(*stack, env)
+	CELLHEAD
+	PUSH
 	LEA env
 	PUSH
 	JSR eval ; recurse!
 	;     *stack = *stack.tail()
-	CELLTAIL  ; a = *stack++[1...] - removes from stack
+	ADJ 2
+	CELLTAIL  ; a = *stack[1...]
+	ADJ 1 ; remove from stack
 	PUSH ; put it back onto the stack for comparison loop
 	JMP begin_while
 	;   }
 if_stacklen_not_gt1:
 	;   return eval(*stack, env)  - item to eval still on stack
+	CELLHEAD
+	PUSH
 	LEA env
 	PUSH
 	JSR eval
+	; obsolete ADJ 2
 	LEAVE
 
 if_xl0_ne_begin:
@@ -258,20 +267,25 @@ if_xl0_ne_begin:
 	; }
 	; label if_xl0_ne_symbol:
 if_xl0_ne_symbol:
-	HALTMSG "xl0 != symbol"
 	; proc = eval(x.list[0], env)
 	LEA xl0
 	PUSH
 	LEA env
 	PUSH
 	JSR eval
-	;ADJ 2 ; remove from stack
+	ADJ 2 ; remove from stack
+	SEA proc
 	; exps = new Cell(List)
 	DATA $CellType.LIST
 	CELLNEW
 	SEA exps
 	; while(x.listvalue.count > 0) {
 	LEA x
+	; skip first element
+	PUSH
+	CELLTAIL
+	ADJ 1
+	PUSH
 eval_exps_while:
 	CELLCOUNT
 	PUSH
@@ -279,21 +293,23 @@ eval_exps_while:
 	GT
 	BZ eval_exps_done
 	;   exps.push(eval(head(x), env))
-	LEA x
-	PUSH
 	CELLHEAD
 	PUSH
 	LEA env
+	PUSH
 	JSR eval
-	ADJ 2 ; remove head(x) and env??
+	ADJ 2 ; remove head(x) and env
 	PUSH
 	LEA exps
-	;SWITCH  ; swap exps and result
+	PUSH
+	SWITCH POP ; swap result and exps, move result to A
 	CELLPUSH  ; *stack.list.push(A)
+	POP
+	SEA exps
 	;   x = tail(x)
-	LEA x
-	CELLTAIL  ; A = A.listvalue.Tail()
-	SEA x
+	CELLTAIL  ; A = *Stack.listvalue.Tail()
+	ADJ 1 ; remove it from stack to replace
+	PUSH
 	JMP eval_exps_while
 	; }
 
@@ -305,6 +321,7 @@ eval_exps_done:
 	DATA $CellType.LAMBDA
 	EQ
 	BZ eval_proc_ne_lambda
+	HALTMSG "eval: invoke lambda"
 	; a) proc.list[1] contains parameter names
 	; b) proc.list[2] contains lambda body
 	; 1) Push proc.list[2]
@@ -331,6 +348,12 @@ eval_exps_done:
 	LEAVE
 
 eval_proc_ne_lambda:
+	; return proc.ProcValue(exps)
+	LEA exps
+	PUSH
+	LEA proc
+	CELLINVOKE
+	LEAVE
 	
 ; ======== end proc eval
 
