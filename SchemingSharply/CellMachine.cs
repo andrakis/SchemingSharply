@@ -312,7 +312,7 @@ namespace SchemingSharply
 						break;
 
 					case OpCode.ENVNEW:
-						A = new Cell(new SchemeEnvironment(Stack[SP - 1].ListValue, Stack[SP].ListValue, A.Environment));
+						A = new Cell(new SchemeEnvironment(Stack[SP + 1].ListValue, Stack[SP].ListValue, A.Environment));
 						++SP;
 						break;
 
@@ -521,7 +521,8 @@ namespace SchemingSharply
 				if (1 == 1) AssertEqual(Eval("(lambda (x y) (+ x y))", cr, env), new Cell("#Lambda((x y) (+ x y))"));
 				if (1 == 1) AssertEqual(Eval("(begin (define y 789) y)", cr, env), new Cell(789));
 				if (1 == 1) AssertEqual(Eval("(+ 1 2)", cr, env), new Cell(3));
-				
+				if (1 == 1)
+					AssertEqual(Eval("(begin (define a (lambda (x y) (+ x y))) (a 1 2))", cr, env), new Cell(3));
 			}
 
 			public static void AssertEqual (Cell a, Cell b, string message = null) {

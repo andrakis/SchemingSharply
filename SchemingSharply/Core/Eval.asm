@@ -129,7 +129,6 @@ if_xl0_ne_quote:
 	DATA "if"
 	EQK ; keep xl0 on stack
 	BZ if_xl0_ne_if
-	HALTMSG "xl0 == if"
 	;     return eval_if(x, env)
 	LEA env PUSH
 	LEA x PUSH
@@ -321,7 +320,6 @@ eval_exps_done:
 	DATA $CellType.LAMBDA
 	EQ
 	BZ eval_proc_ne_lambda
-	HALTMSG "eval: invoke lambda"
 	; a) proc.list[1] contains parameter names
 	; b) proc.list[2] contains lambda body
 	; 1) Push proc.list[2]
@@ -342,7 +340,7 @@ eval_exps_done:
 	PUSH  ; *stack++ = env
 	LEA env
 	ENVNEW; A = new env(*stack-2, *stack-1, *stack.Environment)
-	ADJ 2 ; remove proc.list[1] and exps
+	ADJ 1 ; remove proc.list[1]
 	PUSH  ; *stack++ = newenv
 	JSR eval
 	LEAVE
@@ -370,6 +368,7 @@ eval_if:
 	;int parts = 6, targetenv = 5, test = 4, conseq = 3, alt = 2;
 eval_if:
 	ENTER 3
+	HALTMSG "eval_if"
 	;  test = eval(parts.list[1], targetenv)
 	LEA parts
 	PUSH   ; stack++ = parts

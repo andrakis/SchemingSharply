@@ -290,6 +290,13 @@ namespace SchemingSharply.Scheme
 			map.Add(key.Value, value);
 			return value;
 		}
+
+		public override string ToString() {
+			var parts = map.Keys.Select(k => k + ": " + map[k].ToString()).ToList();
+			if (outer != null)
+				parts.Add(outer.ToString());
+			return "#Env{ " + string.Join(", ", parts) + "}";
+		}
 	}
 
 	public struct ProcessState
