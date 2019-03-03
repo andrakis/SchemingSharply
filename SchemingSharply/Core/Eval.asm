@@ -99,7 +99,6 @@ if_x_ne_number:
 	LEAVE
 
 if_xcount_ne_0:
-	HALTMSG "xcount != 0"
 	; xl0 = x.list[0]
 	LEA x
 	PUSH
@@ -116,9 +115,11 @@ if_xcount_ne_0:
 	BZ if_xl0_ne_symbol
 	;   if (xl0 == "quote")
 	DATA "quote"
-	EQK ; keeps xl0 on stack
+	EQK
 	BZ if_xl0_ne_quote
 	;     return x.list[1]
+	LEA x
+	PUSH
 	DATA $1
 	CELLINDEX ; A = Stack[SP][A]
 	LEAVE ; stack will be cleared
@@ -128,6 +129,7 @@ if_xl0_ne_quote:
 	DATA "if"
 	EQK ; keep xl0 on stack
 	BZ if_xl0_ne_if
+	HALTMSG "xl0 == if"
 	;     return eval_if(x, env)
 	LEA env PUSH
 	LEA x PUSH
@@ -142,6 +144,7 @@ if_xl0_ne_if:
 	;     env.Set(x.list[1], eval(x.list[2], env))
 	;     env
 	LEA env
+	PUSH
 	;       eval(x.list[2], env)
 	LEA x
 	PUSH
@@ -152,13 +155,17 @@ if_xl0_ne_if:
 	LEA env
 	PUSH
 	JSR eval
-	PUSH
+	ADJ 2 ; remove env and x
+	PUSH  ; push result onto stack
 	;     x.list[1]
 	LEA x
 	PUSH
 	DATA $1
 	CELLINDEX
-	ADJ 1 ; remove x from stack
+	ADJ 1
+	PUSH ; push x[1]
+	SWITCH POP ; grab 123 from stack
+	; ADJ 1 ; remove x from stack
 	;   env.Set() - puts value in A
 	ENVSET
 	LEAVE
@@ -171,6 +178,7 @@ if_xl0_ne_set!:
 	;     env.Define(x.list[1], eval(x.list[2], env))
 	;     env
 	LEA env
+	PUSH
 	;       eval(x.list[2], env)
 	LEA x
 	PUSH
@@ -181,18 +189,23 @@ if_xl0_ne_set!:
 	LEA env
 	PUSH
 	JSR eval
-	PUSH
+	ADJ 2 ; remove env and x
+	PUSH  ; push result onto stack
 	;     x.list[1]
 	LEA x
 	PUSH
 	DATA $1
 	CELLINDEX
-	ADJ 1 ; remove x from stack
-	;   env.Set() - puts value in A
+	ADJ 1
+	PUSH ; push x[1]
+	SWITCH POP ; grab 123 from stack
+	; ADJ 1 ; remove x from stack
+	;   env.Define() - puts value in A
 	ENVDEFINE
 	LEAVE
 
 if_xl0_ne_define:
+	HALTMSG "xl0 != define"
 	; if (xl0 == "lambda") {
 	DATA "lambda"
 	EQK
@@ -245,6 +258,7 @@ if_xl0_ne_begin:
 	; }
 	; label if_xl0_ne_symbol:
 if_xl0_ne_symbol:
+	HALTMSG "xl0 != symbol"
 	; proc = eval(x.list[0], env)
 	LEA xl0
 	PUSH
@@ -391,4 +405,4 @@ main:
 	LEA Env
 	PUSH
 	JSR eval
-	EXIT 0
+	EXIT

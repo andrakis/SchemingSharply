@@ -177,7 +177,7 @@ namespace SchemingSharply
 					case OpCode.ENTER:
 						Stack[--SP] = new Cell(BP);
 						BP = SP;
-						SP = SP - Code[PC++];
+						SP -= Code[PC++];
 						break;
 
 					case OpCode.ADJ:
@@ -227,23 +227,23 @@ namespace SchemingSharply
 						break;
 
 					case OpCode.EQ:
-						A = new Cell(((int)Stack[SP++] == (int)A) ? 1 : 0);
+						A = new Cell((Stack[SP++] == A) ? 1 : 0);
 						break;
 
 					case OpCode.EQK:
-						A = new Cell(((int)Stack[SP] == (int)A) ? 1 : 0);
+						A = new Cell((Stack[SP] == A) ? 1 : 0);
 						break;
 
 					case OpCode.NEQ:
-						A = new Cell(((int)Stack[SP++] != (int)A) ? 1 : 0);
+						A = new Cell((Stack[SP++] != A) ? 1 : 0);
 						break;
 
 					case OpCode.NEQK:
-						A = new Cell(((int)Stack[SP] != (int)A) ? 1 : 0);
+						A = new Cell((Stack[SP] != A) ? 1 : 0);
 						break;
 
 					case OpCode.JSR:
-						Stack[--SP] = new Cell((int)PC + 1);
+						Stack[--SP] = new Cell(PC + 1);
 						PC = Code[PC];
 						break;
 
@@ -302,12 +302,12 @@ namespace SchemingSharply
 
 					case OpCode.ENVSET:
 						// *Stack++.Environment[*Stack++] = A
-						Stack[SP - 1].Environment.Set(Stack[SP], A);
+						Stack[SP + 1].Environment.Set(Stack[SP], A);
 						SP--; // remove key from stack
 						break;
 
 					case OpCode.ENVDEFINE:
-						Stack[SP - 1].Environment.Define(Stack[SP], A);
+						Stack[SP + 1].Environment.Define(Stack[SP], A);
 						SP--; // remove key from stack
 						break;
 
@@ -484,44 +484,55 @@ namespace SchemingSharply
 				Console.WriteLine("  Data: {0} elements ({1} bytes)", cr.Data.Count, wordlength);
 #endif
 
+				SchemeEnvironment env = new SchemeEnvironment();
+				StandardRuntime.AddGlobals(env);
+
 				string code = ""
 				 + "(begin "
 				 + "   (define fac (lambda (n) (if (<= n 1) 1 (* n (fac (- n 1))))))"
 				 + "   (print (fac 10)))";
-				AssertEqual(Eval(StandardRuntime.True.Value, cr), StandardRuntime.True);
-				AssertEqual(Eval("1", cr), new Cell(1));
-				AssertEqual(Eval(new Cell(new Cell[] { }), cr), StandardRuntime.Nil);
-				AssertEqual(Eval("()", cr), StandardRuntime.Nil);
+				if (1 == 0) AssertEqual(Eval(StandardRuntime.True.Value, cr, env), StandardRuntime.True);
+				if (1 == 0) AssertEqual(Eval("1", cr, env), new Cell(1));
+				if (1 == 0) AssertEqual(Eval(new Cell(new Cell[] { }), cr, env), StandardRuntime.Nil);
+				if (1 == 0) AssertEqual(Eval("()", cr, env), StandardRuntime.Nil);
+				if (1 == 0) AssertEqual(Eval("(quote 1 2 3)", cr, env), new Cell(1));
+				if (1 == 0) AssertEqual(Eval("(define x 123)", cr, env), new Cell(123));
+				if (1 == 0) AssertEqual(Eval("x", cr, env), new Cell(123));
+				if (1 == 0) AssertEqual(Eval("(set! x 456)", cr, env), new Cell(456));
+				if (1 == 0) AssertEqual(Eval("x", cr, env), new Cell(456));
 			}
 
 			public static void AssertEqual (Cell a, Cell b, string message = null) {
 				if (message == null)
 					message = string.Format("{0} != {1}", a, b);
-				if (a != b)
+				if (a != b) {
+					Console.WriteLine("Assertion failed: {0}", message);
 					Debug.Assert(false, message);
+				}
 			}
 
-			public static Cell Eval(string code, CodeResult cr) {
+			public static Cell Eval(string code, CodeResult cr, SchemeEnvironment env) {
 				Cell codeCell = StandardRuntime.Read(code);
-				return Eval(codeCell, cr);
+				return Eval(codeCell, cr, env);
 			}
 
-			public static Cell Eval(Cell code, CodeResult cr) {
+			public static Cell Eval(Cell code, CodeResult cr, SchemeEnvironment env) {
 				List<Cell> args = new List<Cell>();
 				args.Add(code);
-
-				SchemeEnvironment env = new SchemeEnvironment();
-				StandardRuntime.AddGlobals(env);
 				args.Add(new Cell(env));
 
 				Machine machine = new Machine(cr, args);
 
-				int steps = 0;
-				while(machine.Finished == false) { // && steps++ < 10) {
-					machine.Step();
+				try {
+					int steps = 0;
+					while (machine.Finished == false) { // && steps++ < 10) {
+						machine.Step();
 #if DEBUG
-					machine.PrintState();
+						machine.PrintState();
 #endif
+					}
+				} catch (Exception e) {
+					Debug.WriteLine("Eval failed: {0}", e.Message);
 				}
 
 				return machine.A;

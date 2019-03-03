@@ -173,7 +173,7 @@ namespace SchemingSharply.Scheme
 				case CellType.LIST:
 					return listToString(c.ListValue);
 				case CellType.LAMBDA:
-					string r = "#Fun(";
+					string r = "#Lambda(";
 					r += listToString(c.ListValue[0].ListValue);
 					r += " " + listToString(c.ListValue[1].ListValue);
 					r += ")";
@@ -279,14 +279,15 @@ namespace SchemingSharply.Scheme
 			return Find(key.Value)[key.Value];
 		}
 
-		public void Set(Cell key, Cell value)
+		public Cell Set(Cell key, Cell value)
 		{
-			Find(key.Value)[key.Value] = value;
+			return Find(key.Value)[key.Value] = value;
 		}
 
-		public void Define(Cell key, Cell value)
+		public Cell Define(Cell key, Cell value)
 		{
 			map.Add(key.Value, value);
+			return value;
 		}
 	}
 
