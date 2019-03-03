@@ -205,7 +205,6 @@ if_xl0_ne_set!:
 	LEAVE
 
 if_xl0_ne_define:
-	HALTMSG "xl0 != define"
 	; if (xl0 == "lambda") {
 	DATA "lambda"
 	EQK
@@ -224,6 +223,7 @@ if_xl0_ne_define:
 	;   }
 
 if_xl0_ne_lambda:
+	HALTMSG "xl0 != lambda"
 	DATA "begin"
 	EQK
 	BZ if_xl0_ne_begin

@@ -476,13 +476,11 @@ namespace SchemingSharply
 					return;
 				}
 
-#if DEBUG
 				Console.WriteLine("Compiled Core/Eval.asm, {0} bytes into:", eval.Length);
 				Console.WriteLine("  Code: {0} instructions ({1} bytes)", cr.Code.Count, cr.Code.Count * sizeof(int));
 				int wordlength = 0;
 				foreach (Cell c in cr.Data) wordlength += c.Value.Length;
 				Console.WriteLine("  Data: {0} elements ({1} bytes)", cr.Data.Count, wordlength);
-#endif
 
 				SchemeEnvironment env = new SchemeEnvironment();
 				StandardRuntime.AddGlobals(env);
@@ -491,21 +489,22 @@ namespace SchemingSharply
 				 + "(begin "
 				 + "   (define fac (lambda (n) (if (<= n 1) 1 (* n (fac (- n 1))))))"
 				 + "   (print (fac 10)))";
-				if (1 == 0) AssertEqual(Eval(StandardRuntime.True.Value, cr, env), StandardRuntime.True);
-				if (1 == 0) AssertEqual(Eval("1", cr, env), new Cell(1));
-				if (1 == 0) AssertEqual(Eval(new Cell(new Cell[] { }), cr, env), StandardRuntime.Nil);
-				if (1 == 0) AssertEqual(Eval("()", cr, env), StandardRuntime.Nil);
-				if (1 == 0) AssertEqual(Eval("(quote 1 2 3)", cr, env), new Cell(1));
-				if (1 == 0) AssertEqual(Eval("(define x 123)", cr, env), new Cell(123));
-				if (1 == 0) AssertEqual(Eval("x", cr, env), new Cell(123));
-				if (1 == 0) AssertEqual(Eval("(set! x 456)", cr, env), new Cell(456));
-				if (1 == 0) AssertEqual(Eval("x", cr, env), new Cell(456));
+				if (1 == 1) AssertEqual(Eval(StandardRuntime.True.Value, cr, env), StandardRuntime.True);
+				if (1 == 1) AssertEqual(Eval("1", cr, env), new Cell(1));
+				if (1 == 1) AssertEqual(Eval(new Cell(new Cell[] { }), cr, env), StandardRuntime.Nil);
+				if (1 == 1) AssertEqual(Eval("()", cr, env), StandardRuntime.Nil);
+				if (1 == 1) AssertEqual(Eval("(quote 1 2 3)", cr, env), new Cell(1));
+				if (1 == 1) AssertEqual(Eval("(define x 123)", cr, env), new Cell(123));
+				if (1 == 1) AssertEqual(Eval("x", cr, env), new Cell(123));
+				if (1 == 1) AssertEqual(Eval("(set! x 456)", cr, env), new Cell(456));
+				if (1 == 1) AssertEqual(Eval("x", cr, env), new Cell(456));
+				if (1 == 1) AssertEqual(Eval("(lambda (x y) (+ x y))", cr, env), new Cell("#Lambda((x y) (+ x y))"));
 			}
 
 			public static void AssertEqual (Cell a, Cell b, string message = null) {
 				if (message == null)
 					message = string.Format("{0} != {1}", a, b);
-				if (a != b) {
+				if (a.ToString() != b.ToString()) { 
 					Console.WriteLine("Assertion failed: {0}", message);
 					Debug.Assert(false, message);
 				}

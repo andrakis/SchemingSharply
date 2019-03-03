@@ -174,8 +174,8 @@ namespace SchemingSharply.Scheme
 					return listToString(c.ListValue);
 				case CellType.LAMBDA:
 					string r = "#Lambda(";
-					r += listToString(c.ListValue[0].ListValue);
-					r += " " + listToString(c.ListValue[1].ListValue);
+					r += listToString(c.ListValue[1].ListValue);
+					r += " " + listToString(c.ListValue[2].ListValue);
 					r += ")";
 					return r;
 				case CellType.ENVPTR:
@@ -225,8 +225,9 @@ namespace SchemingSharply.Scheme
 				case CellType.NUMBER:
 					return a.Value == b.Value;
 				case CellType.LIST:
-				case CellType.LAMBDA:
 					return a.ListValue == b.ListValue;
+				case CellType.LAMBDA:
+					return a.ListValue == b.ListValue && a.Environment == b.Environment;
 				case CellType.PROC:
 					return a.ProcValue == b.ProcValue;
 				case CellType.ENVPTR:
