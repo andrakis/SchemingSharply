@@ -71,7 +71,7 @@ eval_tail_recurse:
 	CELLTYPE ; get cell type
 	PUSH ; leave on stack
 	; if (typeof x == Symbol)
-	DATA $CellType.STRING
+	DATA $CellType.SYMBOL
 	EQK
 	BZ if_x_ne_symbol
 	ADJ 1 ; remove compared item
@@ -82,16 +82,20 @@ eval_tail_recurse:
 	ENVLOOKUP ; A = cell.env[A]
 	LEAVE
 if_x_ne_symbol:
-	; if (typeof x == Number)
+	; if (typeof x == Number || typeof x == String)
 	DATA $CellType.NUMBER
 	EQK
-	BZ if_x_ne_number
+	BNZ if_x_number_string
+	DATA $CellType.STRING
+	EQK
+	BZ if_x_ne_number_string
+if_x_number_string:
 	ADJ 1 ; remove compared item
 	;   return x;
 	LEA x
 	LEAVE
 
-if_x_ne_number:
+if_x_ne_number_string:
 	; remove celltype from stack
 	ADJ 1
 	; if (x.listcount == 0)
@@ -117,7 +121,7 @@ if_xcount_ne_0:
 	CELLTYPE ; stack = x.list[0].type
 	PUSH
 	; if (typeof xl0 == Symbol) {
-	DATA $CellType.STRING
+	DATA $CellType.SYMBOL
 	EQ
 	BZ if_xl0_ne_symbol
 	;   if (xl0 == "quote")
@@ -320,6 +324,17 @@ if_stacklen_not_gt1:
 	JMP eval_tail_recurse
 
 if_xl0_ne_begin:
+	DATA "typeof"
+	EQK
+	BZ if_xl0_ne_typeof
+	LEA x
+	PUSH
+	DATA $1
+	CELLINDEX
+	CELLTYPE
+	LEAVE
+
+if_xl0_ne_typeof:
 	; falls through:
 	; }
 	; label if_xl0_ne_symbol:

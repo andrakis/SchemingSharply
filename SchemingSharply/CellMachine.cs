@@ -864,7 +864,7 @@ namespace SchemingSharply
 				builder.SetLabel("StandardRuntime.True", StandardRuntime.True);
 				builder.SetLabel("Environment.NewLine", new Cell(Environment.NewLine));
 				// Add CellType.[Name] definitions
-				CellType cellType = CellType.STRING;
+				CellType cellType = CellType.SYMBOL;
 				foreach (var kv in cellType.GetKeyValues<int>())
 					builder.SetLabel("CellType." + kv.Key, kv.Value);
 				OpCode opcode = OpCode.NOP;

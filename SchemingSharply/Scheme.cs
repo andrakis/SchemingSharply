@@ -10,6 +10,10 @@ namespace SchemingSharply.Scheme
 	public enum CellType
 	{
 		/// <summary>
+		///   Cell is a symbolic string. Use .Value
+		/// </summary>
+		SYMBOL,
+		/// <summary>
 		///   Cell is a string. Use .Value
 		/// </summary>
 		STRING,
@@ -73,7 +77,7 @@ namespace SchemingSharply.Scheme
 		public CellProcEnv ProcEnvValue { get; }
 		public SchemeEnvironment Environment { get; set; }
 
-		public Cell(string value, CellType type = CellType.STRING)
+		public Cell(string value, CellType type = CellType.SYMBOL)
 		{
 			Type = type;
 			Value = value;
@@ -194,6 +198,7 @@ namespace SchemingSharply.Scheme
 		public static explicit operator string(Cell c)
 		{
 			switch (c.Type) {
+				case CellType.SYMBOL:
 				case CellType.STRING:
 				case CellType.NUMBER:
 					return c.Value;
@@ -220,7 +225,7 @@ namespace SchemingSharply.Scheme
 		{
 			if (a.Type == CellType.NUMBER)
 				return new Cell((int)a + (int)b);
-			else if (a.Type == CellType.STRING)
+			else if (a.Type == CellType.SYMBOL || a.Type == CellType.STRING)
 				return new Cell((string)a + (string)b);
 			else if (a.Type == CellType.LIST)
 			{
@@ -252,6 +257,7 @@ namespace SchemingSharply.Scheme
 		{
 			switch(a.Type)
 			{
+				case CellType.SYMBOL:
 				case CellType.STRING:
 				case CellType.NUMBER:
 					return a.Value == b.Value;
@@ -424,20 +430,41 @@ namespace SchemingSharply.Scheme
 			e.Insert("null?", new Cell(Nullp));
 		}
 
+		public static bool IsWhiteSpace(char c) {
+			return char.IsWhiteSpace(c) || c == '\n' || c == '\t' || c == '\r';
+		}
+
 		public static List<string> Tokenise (string str)
 		{
 			List<string> tokens = new List<string>();
 			int s = 0;
 			while(s < str.Length)
 			{
-				while (Char.IsWhiteSpace(str[s]))
+				while (IsWhiteSpace(str[s]) && s < str.Length)
 					++s;
-				if (str[s] == '(' || str[s] == ')')
+				if (s == str.Length) break;
+
+				if (str[s] == ';' && str[s + 1] == ';')
+					while (s < str.Length && str[s] != '\n' && str[s] != '\r')
+						++s;
+				else if (str[s] == '(' || str[s] == ')')
 					tokens.Add(str[s++] == '(' ? "(" : ")");
-				else
-				{
+				else if (str[s] == '"' || str[s] == '\'') {
 					int t = s;
-					while (t < str.Length && !Char.IsWhiteSpace(str[t])
+					char sp = str[s];
+					int escape = 0;
+					do {
+						++t;
+						if (escape != 0) escape--;
+						if (str[s] == '\\')
+							escape = 2; // skip this and the next character
+					} while (t < str.Length && (escape != 0 || str[t] != sp));
+					++t;
+					tokens.Add(str.Substring(s, t - s));
+					s = t;
+				} else {
+					int t = s;
+					while (t < str.Length && !IsWhiteSpace(str[t])
 						&& str[t] != '(' && str[t] != ')')
 						++t;
 					tokens.Add(str.Substring(s, t - s));
@@ -450,11 +477,13 @@ namespace SchemingSharply.Scheme
 		public static Cell Atom(string token)
 		{
 			bool isNumber = false;
-			isNumber = Char.IsDigit(token[0]);
+			isNumber = char.IsDigit(token[0]);
 			if (token.Length > 1)
-				isNumber = isNumber || (token[0] == '-' && Char.IsDigit(token[1]));
+				isNumber = isNumber || (token[0] == '-' && char.IsDigit(token[1]));
 			if (isNumber)
 				return new Cell(token, CellType.NUMBER);
+			if (token[0] == '"' && token.EndsWith("\""))
+				return new Cell(token.Substring(1, token.Length - 2), CellType.STRING);
 			return new Cell(token);
 		}
 
@@ -473,8 +502,7 @@ namespace SchemingSharply.Scheme
 				}
 				tokens.RemoveAt(0);
 				return new Cell(cells);
-			}
-			else
+			} else
 				return Atom(token);
 		}
 
@@ -498,13 +526,13 @@ namespace SchemingSharply.Scheme
 	{
 		public Cell Eval(Cell x, SchemeEnvironment env)
 		{
-			if (x.Type == CellType.STRING)
+			if (x.Type == CellType.SYMBOL)
 				return env.Find(x.Value)[x.Value];
 			if (x.Type == CellType.NUMBER)
 				return x;
 			if (x.ListValue.Count == 0)
 				return StandardRuntime.Nil;
-			if (x.ListValue[0].Type == CellType.STRING)
+			if (x.ListValue[0].Type == CellType.SYMBOL)
 			{
 				Cell sym = x.ListValue[0];
 				switch((string)sym)
