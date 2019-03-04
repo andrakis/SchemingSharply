@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SchemingSharply.CellMachine;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -248,6 +249,11 @@ namespace SchemingSharply.Scheme
 			return new Cell((int)a * (int)b);
 		}
 
+		public static Cell operator / (Cell a, Cell b)
+		{
+			return new Cell((int)a / (int)b);
+		}
+
 		public static bool operator !=(Cell a, Cell b)
 		{
 			return !(a == b);
@@ -328,7 +334,7 @@ namespace SchemingSharply.Scheme
 
 		public Cell Define(Cell key, Cell value)
 		{
-			map.Add(key.Value, value);
+			map[key.Value] = value;
 			return value;
 		}
 
@@ -390,6 +396,14 @@ namespace SchemingSharply.Scheme
 			return acc;
 		}
 
+		public static Cell Divide(Cell[] args)
+		{
+			Cell acc = args[0];
+			for (int i = 1; i < args.Length; ++i)
+				acc /= args[i];
+			return acc;
+		}
+
 		public static Cell LessThan (Cell[] args)
 		{
 			return (int)args[0] < (int)args[1] ? True : False;
@@ -402,32 +416,61 @@ namespace SchemingSharply.Scheme
 
 		public static Cell LessThanEqual (Cell[] args)
 		{
-			return (args[0] == args[1] || (int)args[0] < (int)args[1]) ?
-				True : False;
+			return ((int)args[0] <= (int)args[1]) ?  True : False;
+		}
+
+		public static Cell GreaterThan (Cell[] args) {
+			return (int)args[0] > (int)args[1] ? True : False;
+		}
+
+		public static Cell GreaterThanEqual(Cell[] args) {
+			return (int)args[0] >= (int)args[1] ? True : False;
 		}
 
 		public static Cell Print(Cell[] args)
 		{
 			var cellStrings = args.ToList().ConvertAll<string>((c) => (string)c);
-			System.Console.WriteLine(String.Join(" ", cellStrings));
+			System.Console.WriteLine(string.Join(" ", cellStrings));
 			return Nil;
 		}
 
 		public static Cell Head(Cell[] args) => args[0].Head();
 		public static Cell Tail(Cell[] args) => args[0].Tail();
-
 		public static Cell Nullp(Cell[] args) => (args[0].ListValue.Count == 0) ? True : False;
+		public static Cell List(Cell[] args) => new Cell(args);
+		public static Cell Append(Cell[] args) {
+			Cell result = args[0];
+			for (int i = 1; i < args[1].ListValue.Count; ++i)
+				result.ListValue.Add(args[1].ListValue[i]);
+			return result;
+		}
+		public static Cell Cons(Cell[] args) {
+			Cell result = new Cell(CellType.LIST);
+			result.ListValue.Add(args[0]);
+			for (int i = 0; i < args[1].ListValue.Count; ++i)
+				result.ListValue.Add(args[1].ListValue[i]);
+			return result;
+		}
+		public static Cell Length(Cell[] args) => new Cell(args[0].ListValue.Count);
 
 		public static void AddGlobals(SchemeEnvironment e)
 		{
 			e.Insert(False.Value, False); e.Insert(True.Value, True); e.Insert(Nil.Value, Nil);
 			e.Insert("+", new Cell(Plus)); e.Insert("-", new Cell(Minus));
-			e.Insert("*", new Cell(Multiply));
+			e.Insert("*", new Cell(Multiply)); e.Insert("/", new Cell(Divide));
 			e.Insert("<", new Cell(LessThan)); e.Insert("<=", new Cell(LessThanEqual));
+			e.Insert(">", new Cell(GreaterThan)); e.Insert(">=", new Cell(GreaterThanEqual));
 			e.Insert("=", new Cell(Equal)); e.Insert("==", new Cell(Equal));
 			e.Insert("print", new Cell(Print));
 			e.Insert("head", new Cell(Head)); e.Insert("tail", new Cell(Tail));
-			e.Insert("null?", new Cell(Nullp));
+			e.Insert("null?", new Cell(Nullp)); e.Insert("list", new Cell(List));
+			e.Insert("cons", new Cell(Cons)); e.Insert("append", new Cell(Append));
+			e.Insert("length", new Cell(Length));
+			
+			// Add CellType.[Name] definitions
+			CellType cellType = CellType.SYMBOL;
+			foreach (var kv in cellType.GetKeyValues<int>())
+				e.Insert("CellType." + kv.Key, new Cell(kv.Value));
 		}
 
 		public static bool IsWhiteSpace(char c) {

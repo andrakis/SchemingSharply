@@ -154,7 +154,7 @@ namespace SchemingSharply
 			}
 
 			public void Execute(OpCode ins) {
-#if DEBUG
+#if DEBUG1
 				string o = typeof(OpCode).GetEnumName(ins);
 				if (ins.HasArgument()) {
 					o += " " + Code[PC].ToString();
@@ -316,6 +316,10 @@ namespace SchemingSharply
 
 					case OpCode.CELLSETENV:
 						Stack[SP].Environment = A.Environment;
+						break;
+
+					case OpCode.CELLGETENV:
+						A = new Cell(A.Environment);
 						break;
 
 					case OpCode.ENVNEW:

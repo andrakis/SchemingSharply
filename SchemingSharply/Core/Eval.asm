@@ -58,13 +58,12 @@ eval:
 !define x     3
 !define env   2
 !define xl0  -1
-!define i    -2
-!define exps -3
-!define proc -4
-!define test -5
-!define conseq -6
-!define alt -7
-	ENTER 7
+!define exps -2
+!define proc -3
+!define test -4
+!define conseq -5
+!define alt -6
+	ENTER 8
 ; tail recursive entry
 eval_tail_recurse:
 	LEA x ; get x
@@ -189,6 +188,13 @@ eval_if_conseq:
 	LEA conseq
 	; fall through
 eval_if_dosub:
+	;PUSH
+	;LEA env
+	;PUSH
+	;JSR eval
+	; ADJ 2
+	; LEAVE
+
 	; tail recurse
 	SEA x
 	JMP eval_tail_recurse
@@ -314,6 +320,11 @@ begin_while:
 if_stacklen_not_gt1:
 	;   return eval(*stack, env)  - item to eval still on stack
 	CELLHEAD
+	;PUSH
+	;LEA env
+	;PUSH
+	;JSR eval
+	;LEAVE
 	SEA x
 	ADJ 2
 	JMP eval_tail_recurse
@@ -407,11 +418,14 @@ eval_exps_done:
 	PUSH  ; *stack++ = proc.list[1]
 	LEA exps
 	PUSH  ; *stack++ = env
-	LEA env
-	ENVNEW; A = new env(*stack-2, *stack-1, *stack.Environment)
+	LEA proc
+	CELLGETENV
+	ENVNEW; A = new env(*stack+1, *stack, A.Environment)
 	ADJ 1 ; remove proc.list[1]
-	PUSH  ; *stack++ = newenv
-	POP SEA env ; put new env into env
+	; PUSH  ; *stack++ = newenv
+	; JSR eval
+	; LEAVE
+	SEA env ; put new env into env
 	POP SEA x   ; put body into x
 	ADJ 2
 	JMP eval_tail_recurse
@@ -438,6 +452,12 @@ eval_proc_ne_proc:
 	LEAVE
 
 eval_proc_ne_procenv:
+	DATA "Invalid CellType in eval "
+	PRINT
+	POP
+	PRINT
+	DATA Environment.NewLine
+	PRINT
 	STATE
 	HALTMSG "Unknown type in eval at proc stage"
 	
