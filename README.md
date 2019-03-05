@@ -13,12 +13,32 @@ Investigating a stack-based solution to the problem of implementing Lisp on [C4-
 
 # Current Status
 
-**Status**: Under active development
+**Status**: Under active development; interpreter fully functional
+
+***Coming soon***:
+
+* Expanded builtin library
+
+* Message send/receive
+
+* Multiprocessor scheduling
 
 Implemented milestones:
 -----------------------
 
 ***(Most recent first)***
+
+* Version 1.0.0.0 released
+
+* Command-line options implemented
+
+* All tests now passing
+
+* Fixed missing builtins, and broken append builtin
+
+* Implemented tests
+
+* Implemented string type and parser that skips comments
 
 * Fixed tail recursion using excess stack
 
