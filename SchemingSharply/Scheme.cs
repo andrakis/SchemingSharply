@@ -440,7 +440,7 @@ namespace SchemingSharply.Scheme
 		public static Cell List(Cell[] args) => new Cell(args);
 		public static Cell Append(Cell[] args) {
 			Cell result = args[0];
-			for (int i = 1; i < args[1].ListValue.Count; ++i)
+			for (int i = 0; i < args[1].ListValue.Count; ++i)
 				result.ListValue.Add(args[1].ListValue[i]);
 			return result;
 		}
@@ -483,7 +483,7 @@ namespace SchemingSharply.Scheme
 			int s = 0;
 			while(s < str.Length)
 			{
-				while (IsWhiteSpace(str[s]) && s < str.Length)
+				while (s < str.Length && IsWhiteSpace(str[s]))
 					++s;
 				if (s == str.Length) break;
 

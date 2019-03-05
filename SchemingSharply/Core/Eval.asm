@@ -63,7 +63,7 @@ eval:
 !define test -4
 !define conseq -5
 !define alt -6
-	ENTER 8
+	ENTER 6
 ; tail recursive entry
 eval_tail_recurse:
 	LEA x ; get x
