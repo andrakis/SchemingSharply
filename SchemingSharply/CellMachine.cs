@@ -154,7 +154,7 @@ namespace SchemingSharply
 			}
 
 			public void Execute(OpCode ins) {
-#if DEBUG1
+#if DEBUG_OPS
 				string o = typeof(OpCode).GetEnumName(ins);
 				if (ins.HasArgument()) {
 					o += " " + Code[PC].ToString();
@@ -357,7 +357,7 @@ namespace SchemingSharply
 
 					case OpCode.EXIT:
 						finished = true;
-#if DEBUG
+#if DEBUG_OPS
 						Console.WriteLine("!Exit with code {0}", A);
 #endif
 						break;
@@ -420,7 +420,7 @@ namespace SchemingSharply
 				//    on return result will be in A
 				//    n * fac(n - 1)
 				code.Add(OpCode.MUL);
-#if DEBUG
+#if DEBUG_OPS
 				code.Add(OpCode.STATE);
 #endif
 				//    return
