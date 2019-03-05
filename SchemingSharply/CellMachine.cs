@@ -113,6 +113,10 @@ namespace SchemingSharply
 			public int BP;             // Base pointer
 			public int PC;             // Program counter
 			public Cell A;             // Accumulator
+			/// <summary>
+			/// Enable assembly source debugging
+			/// </summary>
+			public bool DebugMode = false;
 			protected IList<int> Code;    // Code
 			protected IList<Cell> Data;   // Data
 			protected readonly int Entry; // Initial PC value
@@ -154,15 +158,14 @@ namespace SchemingSharply
 			}
 
 			public void Execute(OpCode ins) {
-#if DEBUG_OPS
-				string o = typeof(OpCode).GetEnumName(ins);
-				if (ins.HasArgument()) {
-					o += " " + Code[PC].ToString();
+				if (DebugMode) {
+					string o = typeof(OpCode).GetEnumName(ins);
+					if (ins.HasArgument()) {
+						o += " " + Code[PC].ToString();
+					}
+					Console.Write("!ins {0,-12}", o);
+					Console.Write("state: ");
 				}
-				Console.Write("!ins {0,-12}", o);
-				Console.Write("state: ");
-				PrintStateLine();
-#endif
 
 				switch(ins)
 				{
@@ -357,14 +360,16 @@ namespace SchemingSharply
 
 					case OpCode.EXIT:
 						finished = true;
-#if DEBUG_OPS
-						Console.WriteLine("!Exit with code {0}", A);
-#endif
+						if(DebugMode)
+							Console.WriteLine("!Exit with code {0}", A);
 						break;
 
 					default:
 						throw new MissingOpCodeException(ins);
 				}
+
+				if(DebugMode)
+					PrintStateLine();
 			}
 
 			public void PrintState()
@@ -462,7 +467,7 @@ namespace SchemingSharply
 			}
 
 			public static void TestCompileFac() {
-				string eval = System.IO.File.ReadAllText("../../Core/Fac.asm");
+				string eval = System.IO.File.ReadAllText(Program.GetFilePath("Eval.asm"));
 				string entry = "main";
 				CodeResult result;
 
@@ -497,7 +502,7 @@ namespace SchemingSharply
 			}
 
 			public static void TestCompileEval() {
-				string eval = System.IO.File.ReadAllText("../../Core/Eval.asm");
+				string eval = System.IO.File.ReadAllText(Program.GetFilePath("Eval.asm"));
 				string entry = "main";
 				CellMachineAssembler assembler = new CellMachineAssembler(eval, entry);
 				CodeResult cr;

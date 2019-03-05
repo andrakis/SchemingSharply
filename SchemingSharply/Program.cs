@@ -15,6 +15,8 @@ namespace SchemingSharply {
 			public List<string> Files = new List<string>();
 			public bool Help = false;
 			public bool Interactive = false;
+			public bool Tests = false;
+			public bool Debug = false;
 		}
 
 		static ProgramArguments ReadArguments(string[] args) {
@@ -22,43 +24,53 @@ namespace SchemingSharply {
 			int i = 0;
 			while(i < args.Length) {
 				string lowered = args[i].ToLower();
-				if(args[i] == "-I")
+				if (args[i] == "-I")
 					parg.Interactive = true;
-				else switch(lowered) {
-					case "help":
-					case "-help":
-					case "--help":
-						parg.Help = true;
-						break;
-					default:
-						parg.Files.Add(args[i]);
-						break;
-				}
+				else if (args[i] == "-T")
+					parg.Tests = true;
+				else if (args[i] == "-d")
+					parg.Debug = true;
+				else switch (lowered) {
+						case "help":
+						case "-help":
+						case "--help":
+							parg.Help = true;
+							break;
+						default:
+							parg.Files.Add(args[i]);
+							break;
+					}
 				++i;
 			}
 			return parg;
 		}
+		static bool Debug = false;
 
 		static void Main(string[] args) {
-			//RunTests();
-
 			ProgramArguments PArgs = ReadArguments(args);
 			if(PArgs.Help) {
-				Console.WriteLine("Usage: executable [-I] [file1 file2 ..] [-help]");
+				Console.WriteLine("Usage: executable [-I] [-T] [-d] [file1 file2 ..] [-help]");
 				Console.WriteLine("");
 				Console.WriteLine("Where:");
+				Console.WriteLine("\t-I         Enter interactive (REPL) mode. Default if no files specified.");
+				Console.WriteLine("\t-T         Run tests");
+				Console.WriteLine("\t-d         Enable instruction debugging");
 				Console.WriteLine("\tfile1..    File to run");
 				Console.WriteLine("\t-help      Show this help");
-				Console.WriteLine("\t-I         Enter interactive (REPL) mode");
 				return;
 			}
+
+			Debug = PArgs.Debug;
 
 			SchemeEnvironment env = new SchemeEnvironment();
 			StandardRuntime.AddGlobals(env);
 
-			if (PArgs.Files.Count == 0)
+			if (PArgs.Tests)
+				RunTests();
+			else if (PArgs.Files.Count == 0)
 				PArgs.Interactive = true;
-			else {
+
+			if(PArgs.Files.Count > 0) {
 				foreach (string file in PArgs.Files)
 					RunSpecifiedFile(file, env);
 				if (PArgs.Interactive == false &&
@@ -82,7 +94,7 @@ namespace SchemingSharply {
 			"../Scheme/",
 			"../../Scheme/"
 		};
-		static string GetFilePath (string spec) {
+		public static string GetFilePath (string spec) {
 			foreach(string prefix in FileSearchPaths) {
 				string fullPath = prefix + spec;
 				if (File.Exists(fullPath))
@@ -109,6 +121,7 @@ namespace SchemingSharply {
 				// Create VM
 				Cell[] args = new Cell[] { specCodeCell, new Cell(env) };
 				Machine machine = new Machine(evalCodeResult, args);
+				machine.DebugMode = Debug;
 				// Run VM
 				while(machine.Finished == false) {
 					machine.Step();
@@ -194,7 +207,8 @@ namespace SchemingSharply {
 		protected static Cell DoEval(Cell code, CodeResult eval, SchemeEnvironment env) {
 			Cell[] args = { code, new Cell(env) };
 			Machine machine = new Machine(eval, args);
-			while(machine.Finished == false) {
+			machine.DebugMode = Debug;
+			while (machine.Finished == false) {
 				machine.Step();
 			}
 			return machine.A;
@@ -218,7 +232,7 @@ namespace SchemingSharply {
 		private static CodeResult UnitTestCode;
 		private static int UnitTestSuccess, UnitTestFail;
 		private static void RunUnitTests() {
-			string evalCode = System.IO.File.ReadAllText("../../Core/Eval.asm");
+			string evalCode = System.IO.File.ReadAllText(Program.GetFilePath("Eval.asm"));
 			string evalEntry = "main";
 
 			try {
