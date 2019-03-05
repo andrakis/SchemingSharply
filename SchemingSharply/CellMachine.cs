@@ -114,6 +114,10 @@ namespace SchemingSharply
 			public int PC;             // Program counter
 			public Cell A;             // Accumulator
 			/// <summary>
+			/// Steps executed by the virtual machine.
+			/// </summary>
+			public ulong Steps { get; private set; } = 0;
+			/// <summary>
 			/// Enable assembly source debugging
 			/// </summary>
 			public bool DebugMode = false;
@@ -166,6 +170,8 @@ namespace SchemingSharply
 					Console.Write("!ins {0,-12}", o);
 					Console.Write("state: ");
 				}
+
+				Steps++;
 
 				switch(ins)
 				{
@@ -570,6 +576,7 @@ namespace SchemingSharply
 				return Eval(codeCell, cr, env);
 			}
 
+			public static ulong StepsExecuted = 0;
 			public static Cell Eval(Cell code, CodeResult cr, SchemeEnvironment env) {
 				List<Cell> args = new List<Cell>();
 				args.Add(code);
@@ -584,6 +591,7 @@ namespace SchemingSharply
 					while (machine.Finished == false) { // && steps++ < 10) {
 						machine.Step();
 					}
+					StepsExecuted += machine.Steps;
 					sw.Stop();
 					Console.WriteLine("!Eval ran in {0}", sw.Elapsed);
 				} catch (Exception e) {

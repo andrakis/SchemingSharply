@@ -28,6 +28,10 @@ Implemented milestones:
 
 ***(Most recent first)***
 
+* Version 1.0.1.0 released
+
+* Implemented utility functions to enable/disable debugging, and timing and step count.
+
 * Version 1.0.0.0 released
 
 * Command-line options implemented

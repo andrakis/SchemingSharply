@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -13,10 +14,26 @@ namespace SchemingSharply {
 	{
 		class ProgramArguments {
 			public List<string> Files = new List<string>();
+			/// <summary>
+			/// Whether to display help.
+			/// </summary>
 			public bool Help = false;
+			/// <summary>
+			/// Whether to go into REPL.
+			/// </summary>
 			public bool Interactive = false;
+			/// <summary>
+			/// Whether to run tests.
+			/// </summary>
 			public bool Tests = false;
+			/// <summary>
+			/// Whether to enable debug mode.
+			/// </summary>
 			public bool Debug = false;
+			/// <summary>
+			/// Whether to enable timing mode.
+			/// </summary>
+			public bool Timing = false;
 		}
 
 		static ProgramArguments ReadArguments(string[] args) {
@@ -26,6 +43,8 @@ namespace SchemingSharply {
 				string lowered = args[i].ToLower();
 				if (args[i] == "-I")
 					parg.Interactive = true;
+				else if (args[i] == "-t")
+					parg.Timing = true;
 				else if (args[i] == "-T")
 					parg.Tests = true;
 				else if (args[i] == "-d")
@@ -49,11 +68,12 @@ namespace SchemingSharply {
 		static void Main(string[] args) {
 			ProgramArguments PArgs = ReadArguments(args);
 			if(PArgs.Help) {
-				Console.WriteLine("Usage: executable [-I] [-T] [-d] [file1 file2 ..] [-help]");
+				Console.WriteLine("Usage: executable [-I] [-T] [-t] [-d] [file1 file2 ..] [-help]");
 				Console.WriteLine("");
 				Console.WriteLine("Where:");
 				Console.WriteLine("\t-I         Enter interactive (REPL) mode. Default if no files specified.");
 				Console.WriteLine("\t-T         Run tests");
+				Console.WriteLine("\t-t         Enable timing");
 				Console.WriteLine("\t-d         Enable instruction debugging");
 				Console.WriteLine("\tfile1..    File to run");
 				Console.WriteLine("\t-help      Show this help");
@@ -61,6 +81,7 @@ namespace SchemingSharply {
 			}
 
 			Debug = PArgs.Debug;
+			ShowTimings = PArgs.Timing;
 
 			SchemeEnvironment env = new SchemeEnvironment();
 			StandardRuntime.AddGlobals(env);
@@ -103,6 +124,7 @@ namespace SchemingSharply {
 			throw new FileNotFoundException(spec);
 		}
 
+		static bool ShowTimings = false;
 		static void RunSpecifiedFile(string path, SchemeEnvironment env = null) {
 			try {
 				// Assemble Eval.asm
@@ -123,9 +145,14 @@ namespace SchemingSharply {
 				Machine machine = new Machine(evalCodeResult, args);
 				machine.DebugMode = Debug;
 				// Run VM
+				Stopwatch sw = new Stopwatch();
+				sw.Start();
 				while(machine.Finished == false) {
 					machine.Step();
 				}
+				sw.Stop();
+				if(ShowTimings)
+					Console.WriteLine("=== Executed {0} steps in {1}ms", machine.Steps, sw.ElapsedMilliseconds);
 				Console.Error.WriteLine("Finish with value: {0}", machine.A);
 			} catch (Exception e) {
 				Console.Error.WriteLine("!!! {0}", e.Message);
@@ -164,6 +191,7 @@ namespace SchemingSharply {
 
 			List<Cell> history = new List<Cell>();
 			bool quit = false;
+			bool timing = false;
 
 			// Add a function to get a history result
 			env.Insert("h", new Cell(args => new Cell(history[(int)(args[0])])));
@@ -177,26 +205,46 @@ namespace SchemingSharply {
 			env.Insert("env-str", new Cell(args => new Cell(args[0].Environment.ToString())));
 			env.Insert("exit", new Cell(args => { quit = true; return StandardRuntime.Nil; }));
 			env.Insert("quit", env.Lookup(new Cell("exit")));
+			env.Insert("timing", new Cell(args => {
+				if (args.Length > 0) {
+					timing = ((string)args[0] == "on" || args[0] == StandardRuntime.True);
+					Console.Error.WriteLine("Timing is now " + (timing ? "on" : "off"));
+				}
+				return timing ? StandardRuntime.True : StandardRuntime.False;
+			}));
 
-			Console.WriteLine("SchemingSharply v {0}", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version);
-			Console.WriteLine("Type `quit' to quit");
-			Console.WriteLine("Type `(env-str (env))' to display environment");
-			Console.WriteLine("Use `(eval expr)' or `(eval expr (env))' for testing");
-			Console.WriteLine("Use `(h n)' to view history item n");
-			Console.WriteLine();
+			env.Insert("help", new Cell(args => {
+				Console.WriteLine("SchemingSharply v {0}", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version);
+				Console.WriteLine("Type `quit' or `\\q' to quit");
+				Console.WriteLine("Type `(env-str (env))' to display environment");
+				Console.WriteLine("Use `(eval expr)' or `(eval expr (env))' for testing");
+				Console.WriteLine("Use `(h n)' to view history item n");
+				Console.WriteLine("Use `(timing #true)` to enable timing, `(debug #true)` to enable debugging");
+				Console.WriteLine("Use `(help)' to display this message again");
+				Console.WriteLine();
+				return StandardRuntime.Nil;
+			}));
+
+			env["help"].ProcValue(new Cell[] { }); // invoke
 
 			while(!quit) { 
 				int index = history.Count;
 				string entry = ReadLine(string.Format("{0}> ", index)).Trim();
 				if (entry.Equals("quit", StringComparison.OrdinalIgnoreCase) ||
-					entry.Equals("exit", StringComparison.OrdinalIgnoreCase))
+					entry.Equals("exit", StringComparison.OrdinalIgnoreCase) ||
+					entry == "\\q")
 					break;
 				if (entry.Equals(""))
 					continue;
 				try {
+					Stopwatch sw = new Stopwatch();
+					sw.Start();
 					Cell entered = StandardRuntime.Read(entry);
 					Cell result = DoEval(entered, evalCodeResult, env);
+					sw.Stop();
 					Console.WriteLine("===> {0}", result);
+					if (timing)
+						Console.WriteLine("=== Executed {0} steps in {1}ms", LastExecutedSteps, sw.ElapsedMilliseconds);
 					history.Add(result);
 				} catch (Exception e) {
 					Console.WriteLine("!!!> {0}", e.Message);
@@ -204,13 +252,23 @@ namespace SchemingSharply {
 			}
 		}
 
+		static ulong LastExecutedSteps = 0;
 		protected static Cell DoEval(Cell code, CodeResult eval, SchemeEnvironment env) {
 			Cell[] args = { code, new Cell(env) };
 			Machine machine = new Machine(eval, args);
+			// Update/set (debug) function
+			env.Insert("debug", new Cell(btargs => {
+				if(btargs.Length > 0) {
+					machine.DebugMode = (btargs[0] == StandardRuntime.True);
+				}
+				Debug = machine.DebugMode;
+				return machine.DebugMode ? StandardRuntime.True : StandardRuntime.False;
+			}));
 			machine.DebugMode = Debug;
 			while (machine.Finished == false) {
 				machine.Step();
 			}
+			LastExecutedSteps = machine.Steps;
 			return machine.A;
 		}
 
@@ -225,7 +283,8 @@ namespace SchemingSharply {
 
 			RunUnitTests();
 			sw.Stop();
-			//Console.Error.WriteLine("[DEBUG] Code run in {0}", sw.Elapsed);
+			if(ShowTimings)
+				Console.WriteLine("=== Executed {0} steps in {1}ms", CellMachine.Machine.StepsExecuted, sw.ElapsedMilliseconds);
 		}
 
 		private static SchemeEnvironment UnitTestEnvironment;

@@ -322,9 +322,18 @@ namespace SchemingSharply.Scheme
 			throw new CellNameNotFound(key);
 		}
 
+		public Cell this[string key] {
+			get {
+				return Lookup(key);
+			}
+		}
+
+		public Cell Lookup (string key) {
+			return Find(key)[key];
+		}
 		public Cell Lookup(Cell key)
 		{
-			return Find(key.Value)[key.Value];
+			return Lookup(key.ToString());
 		}
 
 		public Cell Set(Cell key, Cell value)
