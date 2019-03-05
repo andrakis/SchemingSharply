@@ -11,9 +11,112 @@ using SchemingSharply.StackMachine;
 namespace SchemingSharply {
 	public class Program
 	{
+		class ProgramArguments {
+			public List<string> Files = new List<string>();
+			public bool Help = false;
+			public bool Interactive = false;
+		}
+
+		static ProgramArguments ReadArguments(string[] args) {
+			ProgramArguments parg = new ProgramArguments();
+			int i = 0;
+			while(i < args.Length) {
+				string lowered = args[i].ToLower();
+				if(args[i] == "-I")
+					parg.Interactive = true;
+				else switch(lowered) {
+					case "help":
+					case "-help":
+					case "--help":
+						parg.Help = true;
+						break;
+					default:
+						parg.Files.Add(args[i]);
+						break;
+				}
+				++i;
+			}
+			return parg;
+		}
+
 		static void Main(string[] args) {
-			RunTests();
-			//RunEvalLoop();
+			//RunTests();
+
+			ProgramArguments PArgs = ReadArguments(args);
+			if(PArgs.Help) {
+				Console.WriteLine("Usage: executable [-I] [file1 file2 ..] [-help]");
+				Console.WriteLine("");
+				Console.WriteLine("Where:");
+				Console.WriteLine("\tfile1..    File to run");
+				Console.WriteLine("\t-help      Show this help");
+				Console.WriteLine("\t-I         Enter interactive (REPL) mode");
+				return;
+			}
+
+			SchemeEnvironment env = new SchemeEnvironment();
+			StandardRuntime.AddGlobals(env);
+
+			if (PArgs.Files.Count == 0)
+				PArgs.Interactive = true;
+			else {
+				foreach (string file in PArgs.Files)
+					RunSpecifiedFile(file, env);
+				if (PArgs.Interactive == false &&
+					System.Diagnostics.Debugger.IsAttached) {
+					Console.WriteLine("[DEBUG] Press ENTER to end.");
+					Console.ReadLine();
+				}
+			}
+			if(PArgs.Interactive)
+				REPL(env);
+		}
+
+		static string[] FileSearchPaths = {
+			"./",
+			"../",
+			"../../",
+			"./Core/",
+			"../Core/",
+			"../../Core/",
+			"./Scheme/",
+			"../Scheme/",
+			"../../Scheme/"
+		};
+		static string GetFilePath (string spec) {
+			foreach(string prefix in FileSearchPaths) {
+				string fullPath = prefix + spec;
+				if (File.Exists(fullPath))
+					return fullPath;
+			}
+			throw new FileNotFoundException(spec);
+		}
+
+		static void RunSpecifiedFile(string path, SchemeEnvironment env = null) {
+			try {
+				// Assemble Eval.asm
+				string evalCode = File.ReadAllText(GetFilePath("Eval.asm"));
+				string evalEntry = "main";
+				CodeResult evalCodeResult;
+				evalCodeResult = CellMachineAssembler.Assemble(evalCode, evalEntry);
+				// Read in specified file
+				string specCode = File.ReadAllText(GetFilePath(path));
+				Cell specCodeCell = StandardRuntime.Read(specCode);
+				if (env == null) {
+					// Create environment
+					env = new SchemeEnvironment();
+					StandardRuntime.AddGlobals(env);
+				}
+				// Create VM
+				Cell[] args = new Cell[] { specCodeCell, new Cell(env) };
+				Machine machine = new Machine(evalCodeResult, args);
+				// Run VM
+				while(machine.Finished == false) {
+					machine.Step();
+				}
+				Console.Error.WriteLine("Finish with value: {0}", machine.A);
+			} catch (Exception e) {
+				Console.Error.WriteLine("!!! {0}", e.Message);
+			}
 		}
 
 		const int READLINE_BUFFER_SIZE = 30 * 1024;
@@ -25,8 +128,8 @@ namespace SchemingSharply {
 			char[] chars = Encoding.UTF8.GetChars(bytes, 0, outputLength);
 			return new string(chars);
 		}
-		static void RunEvalLoop() {
-			string evalCode = System.IO.File.ReadAllText("../../Core/Eval.asm");
+		static void REPL(SchemeEnvironment env = null) {
+			string evalCode = System.IO.File.ReadAllText(GetFilePath("Eval.asm"));
 			string evalEntry = "main";
 			CodeResult evalCodeResult;
 
@@ -41,8 +144,10 @@ namespace SchemingSharply {
 				return;
 			}
 
-			SchemeEnvironment env = new SchemeEnvironment();
-			StandardRuntime.AddGlobals(env);
+			if (env == null) {
+				env = new SchemeEnvironment();
+				StandardRuntime.AddGlobals(env);
+			}
 
 			List<Cell> history = new List<Cell>();
 			bool quit = false;
@@ -105,14 +210,8 @@ namespace SchemingSharply {
 			SchemingSharply.CellMachine.Machine.TestCompileEval();
 
 			RunUnitTests();
-
-			if (System.Diagnostics.Debugger.IsAttached)
-			{
-				sw.Stop();
-				Console.Error.WriteLine("[DEBUG] Code run in {0}", sw.Elapsed);
-				Console.WriteLine("[DEBUG] Press ENTER to end.");
-				Console.ReadLine();
-			}
+			sw.Stop();
+			//Console.Error.WriteLine("[DEBUG] Code run in {0}", sw.Elapsed);
 		}
 
 		private static SchemeEnvironment UnitTestEnvironment;
