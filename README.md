@@ -13,7 +13,7 @@ Investigating a stack-based solution to the problem of implementing Lisp on [C4-
 
 # Current Status
 
-**Status**: Under active development; interpreter fully functional
+**Status**: Under active development; interpreter fully functional; new frame-based interpreter mostly functional
 
 ***Coming soon***:
 
@@ -27,6 +27,10 @@ Implemented milestones:
 -----------------------
 
 ***(Most recent first)***
+
+* Implemented first pass of frame-based interpreter. Uses frames and subframes to acheive similar effect to virtual machine interpreter, but with a much faster speed.
+
+* New framework allows easy testing of each interpreter implementation
 
 * Version 1.0.1.0 released
 

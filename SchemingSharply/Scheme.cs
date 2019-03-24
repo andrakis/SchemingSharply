@@ -776,4 +776,220 @@ namespace SchemingSharply.Scheme
 			throw new SchemeException("Invalid item in Eval");
 		}
 	}
+
+	public class FrameEval : SchemeEval {
+		[Flags]
+		public enum FrameStep : uint {
+			ENTER,
+			BUILTIN,
+			BEGIN,
+			IF_TEST,
+			IF_DONE,
+			DEFINE,
+			PROC,
+			EXPS,
+			EXEC_PROC,
+			SUBFRAME = 0x100,
+			SUBFRAME_FIN = 0x200,
+			DONE = 0x500
+		}
+		public class FrameState {
+			public FrameStep Step { get; private set; }
+			public Cell Result { get; private set; } = StandardRuntime.Nil;
+			public FrameState Subframe { get; private set; } = null;
+
+			protected Cell X;
+			protected Cell Env;
+			protected Cell BeginCells;
+			protected Cell Proc;
+			protected Cell Exps;
+			protected Cell ExpsIt;
+			protected Cell Test, Conseq, Consalt;
+			
+			public FrameState (Cell x, Cell env, FrameStep step = FrameStep.ENTER) {
+				X = x;
+				Env = env;
+				Step = step;
+			}
+
+			public bool IsSimple () { return X.Type == CellType.NUMBER || X.Type == CellType.STRING; }
+			public bool IsDone() { return Step == FrameStep.DONE; }
+			public void SingleStep () {
+				if(Step.HasFlag(FrameStep.SUBFRAME)) {
+					Subframe.SingleStep();
+					if (!Subframe.IsDone())
+						return;
+					// Mark subframe finished
+					Step &= ~FrameStep.SUBFRAME;
+					Step |= FrameStep.SUBFRAME_FIN;
+				}
+				Again:
+				switch(Step) {
+					case FrameStep.ENTER:
+						if (IsSimple()) {
+							Result = X;
+							Step = FrameStep.DONE;
+						} else if (X.Type == CellType.SYMBOL) {
+							Result = Env.Environment.Lookup(X);
+							Step = FrameStep.DONE;
+						} else if (X.Empty()) {
+							Result = StandardRuntime.Nil;
+							Step = FrameStep.DONE;
+						} else {
+							Step = FrameStep.BUILTIN;
+							goto Again;
+						}
+						break;
+
+					case FrameStep.BUILTIN:
+						if (X.Type != CellType.LIST) {
+							Step = FrameStep.PROC;
+							goto Again;
+						} else {
+							if (X.ListValue[0].Type != CellType.SYMBOL) {
+								Step = FrameStep.PROC;
+								goto Again;
+							} else
+								switch (X.ListValue[0].Value) {
+									case "if":
+										Step = FrameStep.IF_TEST | FrameStep.SUBFRAME;
+										Subframe = new FrameState(X.ListValue[1], Env);
+										break;
+
+									case "define":
+									case "set!":
+										Step = FrameStep.DEFINE | FrameStep.SUBFRAME;
+										Subframe = new FrameState(X.ListValue[2], Env);
+										break;
+
+									case "quote":
+										Step = FrameStep.DONE;
+										Result = X.ListValue[1];
+										break;
+
+									case "lambda":
+										Step = FrameStep.DONE;
+										X.Environment = Env.Environment;
+										X.Type = CellType.LAMBDA;
+										Result = X;
+										break;
+
+									case "begin":
+										Step = FrameStep.BEGIN;
+										BeginCells = X.Tail();
+										break;
+
+									default:
+										Step = FrameStep.PROC;
+										goto Again;
+								}
+						}
+						break;
+
+					case FrameStep.IF_TEST | FrameStep.SUBFRAME_FIN:
+						// TODO: tail recursion
+						Cell cons;
+						if (Subframe.Result == StandardRuntime.True) {
+							cons = X.Tail().Tail().Head();
+						} else {
+							cons = X.Tail().Tail().Tail().HeadOr(StandardRuntime.Nil);
+						}
+						Step  = FrameStep.IF_DONE | FrameStep.SUBFRAME;
+						Subframe = new FrameState(cons, Env);
+						break;
+
+					case FrameStep.IF_DONE | FrameStep.SUBFRAME_FIN:
+						Result = Subframe.Result;
+						Step = FrameStep.DONE;
+						break;
+
+					case FrameStep.DEFINE | FrameStep.SUBFRAME_FIN:
+						Result = Subframe.Result;
+						if (X.ListValue[0].Value == "define")
+							Env.Environment.Define(X.ListValue[1], Result);
+						else if (X.ListValue[0].Value == "set!")
+							Env.Environment.Set(X.ListValue[1], Result);
+						else throw new NotImplementedException();
+						Step = FrameStep.DONE;
+						break;
+
+					case FrameStep.BEGIN:
+						Cell h = BeginCells.Head();
+						BeginCells = BeginCells.Tail();
+						Step = FrameStep.BEGIN | FrameStep.SUBFRAME;
+						Subframe = new FrameState(h, Env);
+						break;
+
+					case FrameStep.BEGIN | FrameStep.SUBFRAME_FIN:
+						// TODO: tail recursion
+						Result = Subframe.Result;
+						Step = BeginCells.Empty() ? FrameStep.DONE : FrameStep.BEGIN;
+						break;
+
+					case FrameStep.PROC:
+						Step |= FrameStep.SUBFRAME;
+						Subframe = new FrameState(X.Head(), Env);
+						break;
+
+					case FrameStep.PROC | FrameStep.SUBFRAME_FIN:
+						Proc = Subframe.Result;
+						if (Proc.Type == CellType.MACRO) {
+							Exps = X.Tail();
+							Step = FrameStep.EXEC_PROC;
+						} else {
+							Step = FrameStep.EXPS | FrameStep.SUBFRAME;
+							Exps = new Cell(CellType.LIST);
+							ExpsIt = X.Tail();
+							Subframe = new FrameState(ExpsIt.Head(), Env);
+							ExpsIt = ExpsIt.Tail();
+						}
+						break;
+
+					case FrameStep.EXPS | FrameStep.SUBFRAME_FIN:
+						Exps.ListValue.Add(Subframe.Result);
+						if (ExpsIt.Empty())
+							Step = FrameStep.EXEC_PROC;
+						else {
+							Step = FrameStep.EXPS | FrameStep.SUBFRAME;
+							Subframe = new FrameState(ExpsIt.Head(), Env);
+							ExpsIt = ExpsIt.Tail();
+						}
+						break;
+
+					case FrameStep.EXEC_PROC:
+						switch (Proc.Type) {
+							case CellType.PROC:
+								Result = Proc.ProcValue(Exps.ListValue.ToArray());
+								Step = FrameStep.DONE;
+								break;
+
+							case CellType.PROCENV:
+								Result = Proc.ProcEnvValue(Exps.ListValue.ToArray(), Env.Environment);
+								Step = FrameStep.DONE;
+								break;
+
+							case CellType.LAMBDA:
+								// TODO: tail recursion
+								Step = FrameStep.EXEC_PROC | FrameStep.SUBFRAME;
+								SchemeEnvironment envNew = new SchemeEnvironment(Proc.ListValue[1].ListValue, Exps.ListValue, Proc.Environment);
+								Subframe = new FrameState(Proc.ListValue[2], new Cell(envNew));
+								break;
+						}
+						break;
+
+					case FrameStep.EXEC_PROC | FrameStep.SUBFRAME_FIN:
+						Result = Subframe.Result;
+						Step = FrameStep.DONE;
+						break;
+				}
+			}
+		}
+
+		public override Cell Eval(Cell Arg, SchemeEnvironment Env) {
+			FrameState state = new FrameState(Arg, new Cell(Env));
+			while (!state.IsDone())
+				state.SingleStep();
+			return state.Result;
+		}
+	}
 }

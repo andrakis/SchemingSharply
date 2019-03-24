@@ -280,6 +280,7 @@ namespace SchemingSharply {
 			CellUnitTest= 0b0001000,
 			CellAll     = 0b0001111,
 			EvalStandard= 0b0010000,
+			EvalFrame   = 0b0100000,
 			EvalCell    = 0b1000000,
 			EvalAll     = 0b1110000,
 			Release     = CellUnitTest,
@@ -306,6 +307,7 @@ namespace SchemingSharply {
 			CellMachineEval clevl = new CellMachineEval();
 			if(selection.HasFlag(UnitTestSelection.EvalStandard)) SchemeEval.RunTests(evl);
 			if(selection.HasFlag(UnitTestSelection.EvalCell)) SchemeEval.RunTests(clevl);
+			if(selection.HasFlag(UnitTestSelection.EvalFrame)) SchemeEval.RunTests(frevl);
 
 			sw.Stop();
 			if(ShowTimings)
