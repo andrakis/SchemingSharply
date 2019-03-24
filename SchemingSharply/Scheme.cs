@@ -866,6 +866,7 @@ namespace SchemingSharply.Scheme
 				}
 				Steps++;
 			Again:
+				if(DebugMode) Console.WriteLine("Frame.{0}.Step = {1}", Id, Step);
 				switch(Step) {
 					case FrameStep.ENTER:
 						if (IsSimple()) {
@@ -985,11 +986,16 @@ namespace SchemingSharply.Scheme
 							Exps = X.Tail();
 							Step = FrameStep.EXEC_PROC;
 						} else {
-							Step = FrameStep.EXPS | FrameStep.SUBFRAME;
 							Exps = new Cell(CellType.LIST);
 							ExpsIt = X.Tail();
-							Subframe = new FrameState(ExpsIt.Head(), Env);
-							ExpsIt = ExpsIt.Tail();
+							if(ExpsIt.ListValue.Count == 0) {
+								Step = FrameStep.EXEC_PROC;
+							} else {
+								// Have arguments to evaluate
+								Step = FrameStep.EXPS | FrameStep.SUBFRAME;
+								Subframe = new FrameState(ExpsIt.Head(), Env);
+								ExpsIt = ExpsIt.Tail();
+							}
 						}
 						break;
 
