@@ -105,9 +105,9 @@ namespace SchemingSharply {
 				Console.WriteLine("\t-help         Show this help");
 				Console.WriteLine("");
 				Console.WriteLine("Evaluators:");
-				Console.WriteLine("\tcell          Cell virtual machine. Default evaluator.");
-				Console.WriteLine("\tclassic       Classic eval loop, no multitasking");
-				Console.WriteLine("\tframe         Frame evaluator. Combines cell and classic benefits.");
+				Console.WriteLine("\tframe         Frame evaluator. Combines cell and classic benefits. Default.");
+				Console.WriteLine("\tcell          Cell virtual machine.");
+				Console.WriteLine("\tclassic       Classic eval loop, no multitasking.");
 				return;
 			}
 
