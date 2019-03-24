@@ -105,7 +105,13 @@ namespace SchemingSharply
 			}
 		}
 
-		public class Machine
+
+		public interface ICellMachine<TCell>
+			where TCell : ICell {
+			bool Finished { get; }
+		}
+
+		public class Machine : ICellMachine<Cell>
 		{
 			//protected IList<Cell> Stack;  // 
 			protected Cell[] Stack;
@@ -597,6 +603,29 @@ namespace SchemingSharply
 					Debug.WriteLine("Eval failed: {0}", e.Message);
 				}
 
+				return machine.A;
+			}
+		}
+
+		public class CellMachineEval : SchemeEval {
+			protected static Dictionary<string, CodeResult> codeCache = new Dictionary<string, CodeResult>();
+			public static CodeResult GetCodeResult(string filepath, string entry = "main") {
+				filepath = Program.GetFilePath(filepath);
+				if(!codeCache.ContainsKey(filepath)) {
+					string code = System.IO.File.ReadAllText(filepath);
+					CellMachineAssembler assembler = new CellMachineAssembler(code, entry);
+					CodeResult cr = CellMachineAssembler.Assemble(code, entry);
+					codeCache.Add(filepath, cr);
+				}
+				return codeCache[filepath];
+			}
+			public override Cell Eval(Cell Arg, SchemeEnvironment Env) {
+				CodeResult cr = GetCodeResult("Eval.asm");
+				SchemeEnvironment env = new SchemeEnvironment();
+				StandardRuntime.AddGlobals(env);
+				Machine machine = new Machine(cr, new Cell[]{ Arg, new Cell(Env) });
+				while (machine.Finished == false)
+					machine.Step();
 				return machine.A;
 			}
 		}

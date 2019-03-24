@@ -588,9 +588,138 @@ namespace SchemingSharply.Scheme
 	{
 		public SchemeException(string message) : base(message) { }
 	}
-	public class StandardEval : ISchemeEval
+
+	public abstract class SchemeEval : ISchemeEval {
+		public abstract Cell Eval(Cell Arg, SchemeEnvironment Env);
+
+		public struct TestResults {
+			public readonly int Success, Failures, Total;
+			public TestResults (int success, int failures, int total = 0) {
+				if (total == 0) total = success + failures;
+				Success = success;
+				Failures = failures;
+				Total = total;
+			}
+		}
+		public static TestResults RunTests(ISchemeEval evalClass, bool display = true) {
+			int success = 0, failures = 0;
+
+			SchemeEnvironment env = new SchemeEnvironment();
+			StandardRuntime.AddGlobals(env);
+			Func<Cell, Cell> EvalCell = (Cell x) => evalClass.Eval(x, env);
+			Func<string, Cell> EvalString = (string x) => {
+				Cell code = StandardRuntime.Read(x);
+				return evalClass.Eval(code, env);
+			};
+			Action<Cell, Cell> AssertEqual = (Cell a, Cell b) => {
+				if (a.ToString() != b.ToString()) {
+					string message = string.Format("{0} != {1}", a, b);
+					Console.WriteLine("Assertion failed: {0}", message);
+					//Debug.Assert(false, message);
+					failures++;
+				} else {
+					success++;
+				}
+			};
+
+			// Core tests
+			//if (true) goto unit;
+			Console.WriteLine("Core tests=======");
+			if (1 == 1) AssertEqual(EvalString(StandardRuntime.True.Value), StandardRuntime.True);
+			if (1 == 1) AssertEqual(EvalString("1"), new Cell(1));
+			if (1 == 1) AssertEqual(EvalCell(new Cell(new Cell[] { })), StandardRuntime.Nil);
+			if (1 == 1) AssertEqual(EvalString("()"), StandardRuntime.Nil);
+			if (1 == 1) AssertEqual(EvalString("(quote 1 2 3)"), new Cell(1));
+			if (1 == 1) AssertEqual(EvalString("(define x 123)"), new Cell(123));
+			if (1 == 1) AssertEqual(EvalString("x"), new Cell(123));
+			if (1 == 1) AssertEqual(EvalString("(set! x 456)"), new Cell(456));
+			if (1 == 1) AssertEqual(EvalString("x"), new Cell(456));
+			if (1 == 1) AssertEqual(EvalString("(lambda (x y) (+ x y))"), new Cell("#Lambda((x y) (+ x y))"));
+			if (1 == 1) AssertEqual(EvalString("(begin (define y 789) y)"), new Cell(789));
+			if (1 == 1) AssertEqual(EvalString("(+ 1 2)"), new Cell(3));
+			if (1 == 1)
+				AssertEqual(EvalString("(begin (define add (lambda (x y) (+ x y))) (add 1 2))"), new Cell(3));
+			if (1 == 1) AssertEqual(EvalString("(if (= 1 1) 1 0)"), new Cell("1"));
+			if (1 == 1) AssertEqual(EvalString("(if (= 0 1) 0 1)"), new Cell("1"));
+			if (1 == 1) AssertEqual(EvalString("(if (= 1 1) 1)"), new Cell("1"));
+			if (1 == 1) AssertEqual(EvalString("(if (= 1 0) 1)"), StandardRuntime.Nil);
+			if (1 == 1)
+				AssertEqual(EvalString("(if (= 1 1) (+ 1 1) (- 1 1))"), new Cell(2));
+			if (1 == 1)
+				AssertEqual(EvalString("(if (= 1 1) (begin 1) (- 1 1))"), new Cell(1));
+
+			unit:
+			// Unit tests
+			Console.WriteLine("Unit tests=======");
+			Action<string, string> TEST = (string code, string expected) => {
+				AssertEqual(EvalString(code), new Cell(expected));
+			};
+			TEST("((lambda (X) (+ X X)) 5)", "10");
+			TEST("(< 10 2)", "#false");
+			TEST("(<= 10 2)", "#false");
+			//TEST("(quote \"f\\\"oo\")", "f\\\"oo");
+			//TEST("(quote \"foo\")", "foo");
+			//TEST("(quote (testing 1 (2.0) -3.14e159))", "(testing 1 (2.000000e+00) -3.140000e+159)");
+			TEST("(+ 2 2)", "4");
+			//TEST("(+ 2.5 2)", "4.500000e+00");
+			//TEST("(* 2.25 2)", "4.500000e+00");    // Bugfix, multiplication was losing floating point value
+			TEST("(+ (* 2 100) (* 1 10))", "210");
+			TEST("(> 6 5)", "#true");
+			TEST("(< 6 5)", "#false");
+			TEST("(if (> 6 5) (+ 1 1) (+ 2 2))", "2");
+			TEST("(if (< 6 5) (+ 1 1) (+ 2 2))", "4");
+			TEST("(define X 3)", "3");
+			TEST("X", "3");
+			TEST("(+ X X)", "6");
+			TEST("(begin (define X 1) (set! X (+ X 1)) (+ X 1))", "3");
+			TEST("(define twice (lambda (X) (* 2 X)))", "#Lambda((X) (* 2 X))");
+			TEST("(twice 5)", "10");
+			TEST("(define compose (lambda (F G) (lambda (X) (F (G X)))))", "#Lambda((F G) (lambda (X) (F (G X))))");
+			TEST("((compose list twice) 5)", "(10)");
+			TEST("(define repeat (lambda (F) (compose F F)))", "#Lambda((F) (compose F F))");
+			TEST("((repeat twice) 5)", "20");
+			TEST("((repeat (repeat twice)) 5)", "80");
+			// Factorial - head recursive
+			TEST("(define fact (lambda (N) (if (<= N 1) 1 (* N (fact (- N 1))))))", "#Lambda((N) (if (<= N 1) 1 (* N (fact (- N 1)))))");
+			TEST("(fact 3)", "6");
+			// TODO: Bignum support
+			TEST("(fact 12)", "479001600");
+			// Factorial - tail recursive
+			TEST("(begin (define fac (lambda (N) (fac2 N 1))) (define fac2 (lambda (N A) (if (<= N 0) A (fac2 (- N 1) (* N A))))))", "#Lambda((N A) (if (<= N 0) A (fac2 (- N 1) (* N A))))");
+			//TEST("(fac 50.1)", "4.732679e+63");   // Bugfix, multiplication was losing floating point value
+			TEST("(define abs (lambda (N) ((if (> N 0) + -) 0 N)))", "#Lambda((N) ((if (> N 0) + -) 0 N))");
+			TEST("(list (abs -3) (abs 0) (abs 3))", "(3 0 3)");
+			TEST("(define combine (lambda (F) " +
+				"(lambda (X Y) " +
+				"(if (null? X) (quote ()) " +
+				"(F (list (head X) (head Y)) " +
+				"((combine F) (tail X) (tail Y)))))))", "#Lambda((F) (lambda (X Y) (if (null? X) (quote ()) (F (list (head X) (head Y)) ((combine F) (tail X) (tail Y))))))");
+			TEST("(define zip (combine cons))", "#Lambda((X Y) (if (null? X) (quote ()) (F (list (head X) (head Y)) ((combine F) (tail X) (tail Y)))))");
+			TEST("(zip (list 1 2 3 4) (list 5 6 7 8))", "((1 5) (2 6) (3 7) (4 8))");
+			TEST("(define riff-shuffle (lambda (Deck) (begin " +
+				"(define take (lambda (N Seq) (if (<= N 0) (quote ()) (cons (head Seq) (take (- N 1) (tail Seq)))))) " +
+				"(define drop (lambda (N Seq) (if (<= N 0) Seq (drop (- N 1) (tail Seq))))) " +
+				"(define mid (lambda (Seq) (/ (length Seq) 2))) " +
+				"((combine append) (take (mid Deck) Deck) (drop (mid Deck) Deck)))))", "#Lambda((Deck) (begin (define take (lambda (N Seq) (if (<= N 0) (quote ()) (cons (head Seq) (take (- N 1) (tail Seq)))))) (define drop (lambda (N Seq) (if (<= N 0) Seq (drop (- N 1) (tail Seq))))) (define mid (lambda (Seq) (/ (length Seq) 2))) ((combine append) (take (mid Deck) Deck) (drop (mid Deck) Deck))))");
+			TEST("(riff-shuffle (list 1 2 3 4 5 6 7 8))", "(1 5 2 6 3 7 4 8)");
+			TEST("((repeat riff-shuffle) (list 1 2 3 4 5 6 7 8))", "(1 3 5 7 2 4 6 8)");
+			TEST("(riff-shuffle (riff-shuffle (riff-shuffle (list 1 2 3 4 5 6 7 8))))", "(1 2 3 4 5 6 7 8)");
+			goto end;
+
+			end:
+			if(display) {
+				if (failures > 0)
+					Console.WriteLine("TEST FAILURES OCCURRED");
+				Console.WriteLine("{0} success, {1} failures", success, failures);
+			}
+
+			return new TestResults(success, failures);
+		}
+	}
+
+	public class StandardEval : SchemeEval
 	{
-		public Cell Eval(Cell x, SchemeEnvironment env)
+		public override Cell Eval(Cell x, SchemeEnvironment env)
 		{
 			if (x.Type == CellType.SYMBOL)
 				return env.Find(x.Value)[x.Value];

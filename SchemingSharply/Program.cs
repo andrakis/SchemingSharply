@@ -94,14 +94,13 @@ namespace SchemingSharply {
 			if(PArgs.Files.Count > 0) {
 				foreach (string file in PArgs.Files)
 					RunSpecifiedFile(file, env);
-				if (PArgs.Interactive == false &&
-					System.Diagnostics.Debugger.IsAttached) {
-					Console.WriteLine("[DEBUG] Press ENTER to end.");
-					Console.ReadLine();
-				}
 			}
 			if(PArgs.Interactive)
 				REPL(env);
+			else if (System.Diagnostics.Debugger.IsAttached) {
+				Console.WriteLine("[DEBUG] Press ENTER to end.");
+				Console.ReadLine();
+			}
 		}
 
 		static string[] FileSearchPaths = {
@@ -240,6 +239,7 @@ namespace SchemingSharply {
 					Stopwatch sw = new Stopwatch();
 					sw.Start();
 					Cell entered = StandardRuntime.Read(entry);
+					LastExecutedSteps = 0;
 					Cell result = DoEval(entered, evalCodeResult, env);
 					sw.Stop();
 					Console.WriteLine("===> {0}", result);
@@ -268,20 +268,45 @@ namespace SchemingSharply {
 			while (machine.Finished == false) {
 				machine.Step();
 			}
-			LastExecutedSteps = machine.Steps;
+			LastExecutedSteps += machine.Steps;
 			return machine.A;
 		}
 
+		[Flags]
+		enum UnitTestSelection : uint {
+			CellTest1   = 0b0000001,
+			CellTestFac = 0b0000010,
+			CellTestEval= 0b0000100,
+			CellUnitTest= 0b0001000,
+			CellAll     = 0b0001111,
+			EvalStandard= 0b0010000,
+			EvalCell    = 0b1000000,
+			EvalAll     = 0b1110000,
+			Release     = CellUnitTest,
+			Debug       = EvalStandard | EvalCell,
+		}
 		static void RunTests() {
-			System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
-			sw.Start();
-			//TestScheme();
-			//TestVM();
-			//SchemingSharply.CellMachine.Machine.Test1();
-			//SchemingSharply.CellMachine.Machine.TestCompileFac();
-			SchemingSharply.CellMachine.Machine.TestCompileEval();
+			UnitTestSelection selection;
+#if DEBUG
+			selection = UnitTestSelection.Debug;
+#else
+			selection = UnitTestSelection.Release;
+#endif
 
-			RunUnitTests();
+			Stopwatch sw = new Stopwatch();
+			sw.Start();
+
+			if(selection.HasFlag(UnitTestSelection.CellTest1)) Machine.Test1();
+			if(selection.HasFlag(UnitTestSelection.CellTestFac)) Machine.TestCompileFac();
+			if(selection.HasFlag(UnitTestSelection.CellTestEval)) Machine.TestCompileEval();
+			if(selection.HasFlag(UnitTestSelection.CellUnitTest)) RunUnitTests();
+
+			StandardEval evl = new StandardEval();
+			FrameEval frevl = new FrameEval();
+			CellMachineEval clevl = new CellMachineEval();
+			if(selection.HasFlag(UnitTestSelection.EvalStandard)) SchemeEval.RunTests(evl);
+			if(selection.HasFlag(UnitTestSelection.EvalCell)) SchemeEval.RunTests(clevl);
+
 			sw.Stop();
 			if(ShowTimings)
 				Console.WriteLine("=== Executed {0} steps in {1}ms", CellMachine.Machine.StepsExecuted, sw.ElapsedMilliseconds);
