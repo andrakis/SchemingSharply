@@ -31,6 +31,10 @@ namespace SchemingSharply.Scheme
 		/// </summary>
 		LAMBDA,
 		/// <summary>
+		///   Cell is a macro. Use .ListValue
+		/// </summary>
+		MACRO,
+		/// <summary>
 		///   Cell is a pointer to a C# function, signature:
 		///   delegate Cell CellProc(Cell[] args)
 		/// </summary>
@@ -46,20 +50,26 @@ namespace SchemingSharply.Scheme
 		ENVPTR
 	}
 
-	public interface IAbstractCell// : IEnumerable<Cell>, IEnumerable<char>
-	{
+	public interface IVeryAbstractCell {
 		int ToInteger();
+		string ToString();
 	}
 
-	public interface ICell : IAbstractCell
+	public interface IAbstractCell<TCell>
+		where TCell : ICell
+	{
+		int ToInteger();
+		TCell Head();
+		TCell Tail();
+	}
+
+	public interface ICell : IAbstractCell<Cell>
 	{
 		CellType Type { get; }
 		string Value { get; }
 		List<Cell> ListValue { get; }
 		SchemeEnvironment Environment { get; set; }
 
-		Cell Head();
-		Cell Tail();
 	}
 
 	public struct Cell : ICell
@@ -181,6 +191,8 @@ namespace SchemingSharply.Scheme
 			return ListValue[0];
 		}
 
+		public Cell HeadOr(Cell or) => ListValue.Count == 0 ? or : ListValue[0];
+
 		public Cell Tail()
 		{
 			if (ListValue.Count == 0)
@@ -188,6 +200,7 @@ namespace SchemingSharply.Scheme
 			return new Cell(ListValue.Skip(1));
 		}
 
+		public bool Empty () { return ListValue.Count == 0; }
 		private static string listToString(List<Cell> cells)
 		{
 			var cells2 = cells.ConvertAll((c) => (string)c);
@@ -210,7 +223,8 @@ namespace SchemingSharply.Scheme
 				case CellType.LIST:
 					return listToString(c.ListValue);
 				case CellType.LAMBDA:
-					string r = "#Lambda(";
+				case CellType.MACRO:
+					string r = c.Type == CellType.LAMBDA ? "#Lambda(" : "#Macro(";
 					r += listToString(c.ListValue[1].ListValue);
 					r += " " + listToString(c.ListValue[2].ListValue);
 					r += ")";
