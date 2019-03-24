@@ -34,6 +34,13 @@ namespace SchemingSharply {
 			/// Whether to enable timing mode.
 			/// </summary>
 			public bool Timing = false;
+			/// <summary>
+			/// The evaluator class to use.
+			/// </summary>
+			public Type EvaluatorType =
+				typeof(CellMachineEval);
+				// typeof(StandardEval);
+				// typeof(FrameEval);
 		}
 
 		static ProgramArguments ReadArguments(string[] args) {
@@ -49,6 +56,22 @@ namespace SchemingSharply {
 					parg.Tests = true;
 				else if (args[i] == "-d")
 					parg.Debug = true;
+				else if (args[i] == "-E") {
+					++i;
+					switch(args[i].ToLower()) {
+						case "cell":
+							parg.EvaluatorType = typeof(CellMachineEval);
+							break;
+						case "classic":
+							parg.EvaluatorType = typeof(StandardEval);
+							break;
+						case "frame":
+							parg.EvaluatorType = typeof(FrameEval);
+							break;
+						default:
+							Console.Error.WriteLine("Invalid evaluator mode, must be one of: cell, classic, frame");
+							break;
+					}
 				else switch (lowered) {
 						case "help":
 						case "-help":
@@ -65,23 +88,31 @@ namespace SchemingSharply {
 		}
 		static bool Debug = false;
 
+		protected static ISchemeEval Evaluator;
 		static void Main(string[] args) {
 			ProgramArguments PArgs = ReadArguments(args);
 			if(PArgs.Help) {
-				Console.WriteLine("Usage: executable [-I] [-T] [-t] [-d] [file1 file2 ..] [-help]");
+				Console.WriteLine("Usage: executable [-I] [-E evaluator] [-T] [-t] [-d] [file1 file2 ..] [-help]");
 				Console.WriteLine("");
 				Console.WriteLine("Where:");
-				Console.WriteLine("\t-I         Enter interactive (REPL) mode. Default if no files specified.");
-				Console.WriteLine("\t-T         Run tests");
-				Console.WriteLine("\t-t         Enable timing");
-				Console.WriteLine("\t-d         Enable instruction debugging");
-				Console.WriteLine("\tfile1..    File to run");
-				Console.WriteLine("\t-help      Show this help");
+				Console.WriteLine("\t-I            Enter interactive (REPL) mode. Default if no files specified.");
+				Console.WriteLine("\t-E evaluator  Use given evaluator, valid options: cell, classic, frame");
+				Console.WriteLine("\t-T            Run tests");
+				Console.WriteLine("\t-t            Enable timing");
+				Console.WriteLine("\t-d            Enable instruction debugging");
+				Console.WriteLine("\tfile1..       File to run");
+				Console.WriteLine("\t-help         Show this help");
+				Console.WriteLine("");
+				Console.WriteLine("Evaluators:");
+				Console.WriteLine("\tcell          Cell virtual machine. Default evaluator.");
+				Console.WriteLine("\tclassic       Classic eval loop, no multitasking");
+				Console.WriteLine("\tframe         Frame evaluator. Combines cell and classic benefits.");
 				return;
 			}
 
 			Debug = PArgs.Debug;
 			ShowTimings = PArgs.Timing;
+			Evaluator = Activator.CreateInstance(PArgs.EvaluatorType) as ISchemeEval;
 
 			SchemeEnvironment env = new SchemeEnvironment();
 			StandardRuntime.AddGlobals(env);
@@ -126,11 +157,6 @@ namespace SchemingSharply {
 		static bool ShowTimings = false;
 		static void RunSpecifiedFile(string path, SchemeEnvironment env = null) {
 			try {
-				// Assemble Eval.asm
-				string evalCode = File.ReadAllText(GetFilePath("Eval.asm"));
-				string evalEntry = "main";
-				CodeResult evalCodeResult;
-				evalCodeResult = CellMachineAssembler.Assemble(evalCode, evalEntry);
 				// Read in specified file
 				string specCode = File.ReadAllText(GetFilePath(path));
 				Cell specCodeCell = StandardRuntime.Read(specCode);
@@ -139,20 +165,12 @@ namespace SchemingSharply {
 					env = new SchemeEnvironment();
 					StandardRuntime.AddGlobals(env);
 				}
-				// Create VM
-				Cell[] args = new Cell[] { specCodeCell, new Cell(env) };
-				Machine machine = new Machine(evalCodeResult, args);
-				machine.DebugMode = Debug;
-				// Run VM
 				Stopwatch sw = new Stopwatch();
-				sw.Start();
-				while(machine.Finished == false) {
-					machine.Step();
-				}
+				DoEval(specCodeCell, env);
 				sw.Stop();
 				if(ShowTimings)
-					Console.WriteLine("=== Executed {0} steps in {1}ms", machine.Steps, sw.ElapsedMilliseconds);
-				Console.Error.WriteLine("Finish with value: {0}", machine.A);
+					Console.WriteLine("=== Executed {0} steps in {1}ms", Evaluator.Steps, sw.ElapsedMilliseconds);
+				Console.Error.WriteLine("Finish with value: {0}", Evaluator.Result);
 			} catch (Exception e) {
 				Console.Error.WriteLine("!!! {0}", e.Message);
 			}
@@ -168,25 +186,13 @@ namespace SchemingSharply {
 			return new string(chars);
 		}
 		static void REPL(SchemeEnvironment env = null) {
-			string evalCode = System.IO.File.ReadAllText(GetFilePath("Eval.asm"));
-			string evalEntry = "main";
-			CodeResult evalCodeResult;
-
-			try {
-				evalCodeResult = CellMachineAssembler.Assemble(evalCode, evalEntry);
-			} catch (Exception e) {
-				Console.WriteLine("Failed to assemble: {0}", e.Message);
-#if DEBUG
-				Console.WriteLine("Stack trace:");
-				Console.WriteLine(e.StackTrace);
-#endif
-				return;
-			}
-
 			if (env == null) {
 				env = new SchemeEnvironment();
 				StandardRuntime.AddGlobals(env);
 			}
+
+			ISchemeEval evaluator;
+			evaluator = new CellMachineEval();
 
 			List<Cell> history = new List<Cell>();
 			bool quit = false;
@@ -197,7 +203,7 @@ namespace SchemingSharply {
 			env.Insert("eval", new Cell((args, subenv) => {
 				if (args.Length > 1)
 					subenv = args[1].Environment;
-				return DoEval(new Cell(args[0]), evalCodeResult, subenv);
+				return DoEval(new Cell(args[0]), subenv);
 			}));
 			env.Insert("env", new Cell((args, subenv) => new Cell(subenv)));
 			env.Insert("str", new Cell(args => new Cell(args[0].ToString())));
@@ -212,13 +218,68 @@ namespace SchemingSharply {
 				return timing ? StandardRuntime.True : StandardRuntime.False;
 			}));
 
+			// Add evaluator constants
+			env.Insert("evcell", new Cell("evcell"));
+			env.Insert("evclassic", new Cell("evclassic"));
+			env.Insert("evframe", new Cell("evframe"));
+			// Add function to change evaluator
+			env.Insert("sweval", new Cell(args => {
+				if (args.Length == 0) {
+					if (Evaluator.GetType() == typeof(CellMachineEval))
+						return new Cell("evcell");
+					else if (Evaluator.GetType() == typeof(StandardEval))
+						return new Cell("evclassic");
+					else if (Evaluator.GetType() == typeof(FrameEval))
+						return new Cell("evframe");
+					else
+						throw new InvalidDataException();
+				}
+
+				ISchemeEval newEvaluator;
+				Cell result;
+				switch(args[0].Value) {
+					case "evcell":
+						newEvaluator = new CellMachineEval();
+						result = new Cell("evcell");
+						break;
+					case "evclassic":
+						newEvaluator = new StandardEval();
+						result = new Cell("evclassic");
+						break;
+					case "evframe":
+						newEvaluator = new FrameEval();
+						result = new Cell("evframe");
+						break;
+
+					default:
+						return new Cell("#invalid_argument");
+				}
+
+				// Copy details to new evaluator
+				newEvaluator.Debug = Evaluator.Debug;
+				Evaluator = newEvaluator;
+
+				return result;
+			}));
+			// Add function to run unit tests on evaluator
+			env.Insert("swtest", new Cell(args => {
+				var results = SchemeEval.RunTests(Evaluator);
+				Cell result = new Cell(CellType.LIST);
+				result.ListValue.Add(new Cell(results.Success));
+				result.ListValue.Add(new Cell(results.Failures));
+				Evaluator.SetResult(result);
+				return result;
+			}));
+
 			env.Insert("help", new Cell(args => {
 				Console.WriteLine("SchemingSharply v {0}", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version);
 				Console.WriteLine("Type `quit' or `\\q' to quit");
-				Console.WriteLine("Type `(env-str (env))' to display environment");
-				Console.WriteLine("Use `(eval expr)' or `(eval expr (env))' for testing");
+				//Console.WriteLine("Type `(env-str (env))' to display environment");
+				//Console.WriteLine("Use `(eval expr)' or `(eval expr (env))' for testing");
 				Console.WriteLine("Use `(h n)' to view history item n");
 				Console.WriteLine("Use `(timing #true)` to enable timing, `(debug #true)` to enable debugging");
+				Console.WriteLine("Use `(sweval ...)` to get or set evaluator; valid options: evcell, evclassic, evframe");
+				Console.WriteLine("Use `(swtest)` to run unit tests");
 				Console.WriteLine("Use `(help)' to display this message again");
 				Console.WriteLine();
 				return StandardRuntime.Nil;
@@ -240,7 +301,7 @@ namespace SchemingSharply {
 					sw.Start();
 					Cell entered = StandardRuntime.Read(entry);
 					LastExecutedSteps = 0;
-					Cell result = DoEval(entered, evalCodeResult, env);
+					Cell result = DoEval(entered, env);
 					sw.Stop();
 					Console.WriteLine("===> {0}", result);
 					if (timing)
@@ -253,23 +314,19 @@ namespace SchemingSharply {
 		}
 
 		static ulong LastExecutedSteps = 0;
-		protected static Cell DoEval(Cell code, CodeResult eval, SchemeEnvironment env) {
-			Cell[] args = { code, new Cell(env) };
-			Machine machine = new Machine(eval, args);
+		protected static Cell DoEval(Cell code, SchemeEnvironment env) {
 			// Update/set (debug) function
 			env.Insert("debug", new Cell(btargs => {
 				if(btargs.Length > 0) {
-					machine.DebugMode = (btargs[0] == StandardRuntime.True);
+					Evaluator.Debug = (btargs[0] == StandardRuntime.True);
 				}
-				Debug = machine.DebugMode;
-				return machine.DebugMode ? StandardRuntime.True : StandardRuntime.False;
+				Debug = Evaluator.Debug;
+				return Debug ? StandardRuntime.True : StandardRuntime.False;
 			}));
-			machine.DebugMode = Debug;
-			while (machine.Finished == false) {
-				machine.Step();
-			}
-			LastExecutedSteps += machine.Steps;
-			return machine.A;
+			Evaluator.Debug = Debug;
+			Evaluator.Eval(code, env);
+			LastExecutedSteps = Evaluator.Steps;
+			return Evaluator.Result;
 		}
 
 		[Flags]
@@ -396,7 +453,7 @@ namespace SchemingSharply {
 
 		static void TEST (string code, string expected) {
 			Cell codeCell = StandardRuntime.Read(code);
-			Cell result = DoEval(codeCell, UnitTestCode, UnitTestEnvironment);
+			Cell result = DoEval(codeCell, UnitTestEnvironment);
 			if(result.ToString() != expected) {
 				Console.WriteLine("TEST FAILED: {0}, expected {1} got {2}",
 					code, expected, result);

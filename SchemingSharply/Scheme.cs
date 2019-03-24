@@ -582,6 +582,15 @@ namespace SchemingSharply.Scheme
 	public interface ISchemeEval
 	{
 		Cell Eval(Cell Arg, SchemeEnvironment Env);
+		bool Debug { set; get; }
+		uint Steps { get; }
+		Cell Result { get; }
+
+		/// <summary>
+		/// Only used in the case of running unit tests
+		/// </summary>
+		/// <param name="result"></param>
+		void SetResult(Cell result);
 	}
 
 	public class SchemeException : Exception
@@ -591,6 +600,20 @@ namespace SchemingSharply.Scheme
 
 	public abstract class SchemeEval : ISchemeEval {
 		public abstract Cell Eval(Cell Arg, SchemeEnvironment Env);
+		public virtual bool IsDebug() => false;
+		public virtual void SetDebug(bool val) { }
+		public virtual uint Steps { get { return 0; } }
+		public Cell Result { get; protected set; }
+
+		// Some things, for example tests, mess with the VM state for
+		// the purpose of getting an eval result.
+		// This allows a proc to fix that.
+		public void SetResult(Cell result) { Result = result; }
+
+		public bool Debug {
+			get { return IsDebug(); }
+			set { SetDebug(value); }
+		}
 
 		public struct TestResults {
 			public readonly int Success, Failures, Total;
@@ -717,9 +740,11 @@ namespace SchemingSharply.Scheme
 		}
 	}
 
-	public class StandardEval : SchemeEval
-	{
-		public override Cell Eval(Cell x, SchemeEnvironment env)
+	public class StandardEval : SchemeEval {
+		public override Cell Eval(Cell Arg, SchemeEnvironment Env) {
+			return Result = InternalEval(Arg, Env);
+		}
+		protected Cell InternalEval(Cell x, SchemeEnvironment env)
 		{
 			if (x.Type == CellType.SYMBOL)
 				return env.Find(x.Value)[x.Value];
@@ -797,6 +822,7 @@ namespace SchemingSharply.Scheme
 			public FrameStep Step { get; private set; }
 			public Cell Result { get; private set; } = StandardRuntime.Nil;
 			public FrameState Subframe { get; private set; } = null;
+			public uint Steps { get; private set; } = 0;
 
 			protected Cell X;
 			protected Cell Env;
@@ -822,8 +848,11 @@ namespace SchemingSharply.Scheme
 					// Mark subframe finished
 					Step &= ~FrameStep.SUBFRAME;
 					Step |= FrameStep.SUBFRAME_FIN;
+					// Housekeeping
+					Steps += Subframe.Steps;
 				}
-				Again:
+			Again:
+				Steps++;
 				switch(Step) {
 					case FrameStep.ENTER:
 						if (IsSimple()) {
@@ -985,10 +1014,18 @@ namespace SchemingSharply.Scheme
 			}
 		}
 
+		protected uint LastSteps = 0;
+		public override uint Steps => LastSteps;
+
 		public override Cell Eval(Cell Arg, SchemeEnvironment Env) {
+			return Result = InternalEval(Arg, Env);
+		}
+
+		protected Cell InternalEval(Cell Arg, SchemeEnvironment Env) { 
 			FrameState state = new FrameState(Arg, new Cell(Env));
 			while (!state.IsDone())
 				state.SingleStep();
+			LastSteps = state.Steps;
 			return state.Result;
 		}
 	}

@@ -122,7 +122,7 @@ namespace SchemingSharply
 			/// <summary>
 			/// Steps executed by the virtual machine.
 			/// </summary>
-			public ulong Steps { get; private set; } = 0;
+			public uint Steps { get; private set; } = 0;
 			/// <summary>
 			/// Enable assembly source debugging
 			/// </summary>
@@ -619,14 +619,27 @@ namespace SchemingSharply
 				}
 				return codeCache[filepath];
 			}
+			protected Machine machine;
 			public override Cell Eval(Cell Arg, SchemeEnvironment Env) {
 				CodeResult cr = GetCodeResult("Eval.asm");
-				SchemeEnvironment env = new SchemeEnvironment();
-				StandardRuntime.AddGlobals(env);
-				Machine machine = new Machine(cr, new Cell[]{ Arg, new Cell(Env) });
+				machine = new Machine(cr, new Cell[]{ Arg, new Cell(Env) });
+				machine.DebugMode = useDebug;
 				while (machine.Finished == false)
 					machine.Step();
-				return machine.A;
+				return Result = machine.A;
+			}
+			public override uint Steps => (machine != null) ? machine.Steps : 0;
+			protected bool useDebug = false;
+			public override bool IsDebug() {
+				if (machine != null)
+					return machine.DebugMode;
+				return useDebug;
+			}
+			public override void SetDebug(bool val) {
+				if (machine != null)
+					useDebug = machine.DebugMode = val;
+				else
+					useDebug = val;
 			}
 		}
 
