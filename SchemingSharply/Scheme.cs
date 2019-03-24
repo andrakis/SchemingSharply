@@ -803,6 +803,11 @@ namespace SchemingSharply.Scheme
 	}
 
 	public class FrameEval : SchemeEval {
+		protected static bool debugMode = true;
+		public static bool DebugMode { get => debugMode; }
+		public override bool IsDebug() => debugMode;
+		public override void SetDebug(bool val) => debugMode = val;
+
 		[Flags]
 		public enum FrameStep : uint {
 			ENTER,
@@ -831,11 +836,19 @@ namespace SchemingSharply.Scheme
 			protected Cell Exps;
 			protected Cell ExpsIt;
 			protected Cell Test, Conseq, Consalt;
-			
+
+			public readonly ulong Id;
+
+			protected static ulong frameId = 0;
 			public FrameState (Cell x, Cell env, FrameStep step = FrameStep.ENTER) {
 				X = x;
 				Env = env;
 				Step = step;
+				Id = ++frameId;
+				if(DebugMode) Console.WriteLine("Frame.{0}({1})", Id, X);
+			}
+			~FrameState () {
+				if (DebugMode) Console.WriteLine("~FrameState.{0} => {1}", Id, Result);
 			}
 
 			public bool IsSimple () { return X.Type == CellType.NUMBER || X.Type == CellType.STRING; }
@@ -851,8 +864,8 @@ namespace SchemingSharply.Scheme
 					// Housekeeping
 					Steps += Subframe.Steps;
 				}
-			Again:
 				Steps++;
+			Again:
 				switch(Step) {
 					case FrameStep.ENTER:
 						if (IsSimple()) {
@@ -903,6 +916,12 @@ namespace SchemingSharply.Scheme
 										Result = X;
 										break;
 
+									case "macro":
+										Step = FrameStep.DONE;
+										X.Type = CellType.MACRO;
+										Result = X;
+										break;
+
 									case "begin":
 										Step = FrameStep.BEGIN;
 										BeginCells = X.Tail();
@@ -916,20 +935,15 @@ namespace SchemingSharply.Scheme
 						break;
 
 					case FrameStep.IF_TEST | FrameStep.SUBFRAME_FIN:
-						// TODO: tail recursion
 						Cell cons;
 						if (Subframe.Result == StandardRuntime.True) {
 							cons = X.Tail().Tail().Head();
 						} else {
 							cons = X.Tail().Tail().Tail().HeadOr(StandardRuntime.Nil);
 						}
-						Step  = FrameStep.IF_DONE | FrameStep.SUBFRAME;
-						Subframe = new FrameState(cons, Env);
-						break;
-
-					case FrameStep.IF_DONE | FrameStep.SUBFRAME_FIN:
-						Result = Subframe.Result;
-						Step = FrameStep.DONE;
+						// Tail recurse
+						X = cons;
+						Step = FrameStep.ENTER;
 						break;
 
 					case FrameStep.DEFINE | FrameStep.SUBFRAME_FIN:
@@ -944,13 +958,18 @@ namespace SchemingSharply.Scheme
 
 					case FrameStep.BEGIN:
 						Cell h = BeginCells.Head();
+						if(BeginCells.ListValue.Count == 1) {
+							// Tail recurse
+							X = h;
+							Step = FrameStep.ENTER;
+							break;
+						}
 						BeginCells = BeginCells.Tail();
 						Step = FrameStep.BEGIN | FrameStep.SUBFRAME;
 						Subframe = new FrameState(h, Env);
 						break;
 
 					case FrameStep.BEGIN | FrameStep.SUBFRAME_FIN:
-						// TODO: tail recursion
 						Result = Subframe.Result;
 						Step = BeginCells.Empty() ? FrameStep.DONE : FrameStep.BEGIN;
 						break;
@@ -998,10 +1017,13 @@ namespace SchemingSharply.Scheme
 								break;
 
 							case CellType.LAMBDA:
-								// TODO: tail recursion
-								Step = FrameStep.EXEC_PROC | FrameStep.SUBFRAME;
-								SchemeEnvironment envNew = new SchemeEnvironment(Proc.ListValue[1].ListValue, Exps.ListValue, Proc.Environment);
-								Subframe = new FrameState(Proc.ListValue[2], new Cell(envNew));
+							case CellType.MACRO:
+								SchemeEnvironment parent = (Proc.Type == CellType.MACRO) ? Env.Environment : Proc.Environment;
+								SchemeEnvironment envNew = new SchemeEnvironment(Proc.ListValue[1].ListValue, Exps.ListValue, parent);
+								// Tail recurse
+								Step = FrameStep.ENTER;
+								Env = new Cell(envNew);
+								X = Proc.ListValue[2];
 								break;
 						}
 						break;

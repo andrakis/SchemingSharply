@@ -38,9 +38,9 @@ namespace SchemingSharply {
 			/// The evaluator class to use.
 			/// </summary>
 			public Type EvaluatorType =
-				typeof(CellMachineEval);
+				// typeof(CellMachineEval);
 				// typeof(StandardEval);
-				// typeof(FrameEval);
+				 typeof(FrameEval);
 		}
 
 		static ProgramArguments ReadArguments(string[] args) {
@@ -72,6 +72,7 @@ namespace SchemingSharply {
 							Console.Error.WriteLine("Invalid evaluator mode, must be one of: cell, classic, frame");
 							break;
 					}
+				}
 				else switch (lowered) {
 						case "help":
 						case "-help":
