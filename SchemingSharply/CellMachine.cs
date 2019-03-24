@@ -437,7 +437,7 @@ namespace SchemingSharply
 				//    return
 				code.Add(OpCode.LEAVE);
 
-				// int main (int n) {
+				// int main (int n)
 				cp = code.Add(OpCode.ENTER, 0);
 				labels["main"] = cp;
 				//    print "Factorial of "
@@ -466,7 +466,7 @@ namespace SchemingSharply
 
 				Machine mach = new Machine(code.Generate(), args);
 				//int i = 0; 
-				while(mach.Finished == false) // && i++ < 130)
+				while(mach.Finished == false)
 				{
 					mach.Step();
 				}
@@ -585,10 +585,9 @@ namespace SchemingSharply
 				Machine machine = new Machine(cr, args);
 
 				try {
-					int steps = 0;
 					System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
 					sw.Start();
-					while (machine.Finished == false) { // && steps++ < 10) {
+					while (machine.Finished == false) {
 						machine.Step();
 					}
 					StepsExecuted += machine.Steps;
