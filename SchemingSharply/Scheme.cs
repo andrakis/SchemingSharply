@@ -585,12 +585,6 @@ namespace SchemingSharply.Scheme
 		bool Debug { set; get; }
 		uint Steps { get; }
 		Cell Result { get; }
-
-		/// <summary>
-		/// Only used in the case of running unit tests
-		/// </summary>
-		/// <param name="result"></param>
-		void SetResult(Cell result);
 	}
 
 	public class SchemeException : Exception
@@ -604,11 +598,6 @@ namespace SchemingSharply.Scheme
 		public virtual void SetDebug(bool val) { }
 		public virtual uint Steps { get { return 0; } }
 		public Cell Result { get; protected set; }
-
-		// Some things, for example tests, mess with the VM state for
-		// the purpose of getting an eval result.
-		// This allows a proc to fix that.
-		public void SetResult(Cell result) { Result = result; }
 
 		public bool Debug {
 			get { return IsDebug(); }
@@ -634,14 +623,16 @@ namespace SchemingSharply.Scheme
 				Cell code = StandardRuntime.Read(x);
 				return evalClass.Eval(code, env);
 			};
-			Action<Cell, Cell> AssertEqual = (Cell a, Cell b) => {
+			Func<Cell, Cell, bool> AssertEqual = (Cell a, Cell b) => {
 				if (a.ToString() != b.ToString()) {
 					string message = string.Format("{0} != {1}", a, b);
 					Console.WriteLine("Assertion failed: {0}", message);
 					//Debug.Assert(false, message);
 					failures++;
+					return false;
 				} else {
 					success++;
+					return true;
 				}
 			};
 
@@ -675,7 +666,11 @@ namespace SchemingSharply.Scheme
 			// Unit tests
 			Console.WriteLine("Unit tests=======");
 			Action<string, string> TEST = (string code, string expected) => {
-				AssertEqual(EvalString(code), new Cell(expected));
+				if (AssertEqual(EvalString(code), new Cell(expected))) {
+					//Console.WriteLine("PASS: {0} == {1}", code, expected);
+				} else {
+					Console.WriteLine("FAIL: {0}", code);
+				}
 			};
 			TEST("((lambda (X) (+ X X)) 5)", "10");
 			TEST("(< 10 2)", "#false");
@@ -727,6 +722,8 @@ namespace SchemingSharply.Scheme
 			TEST("(riff-shuffle (list 1 2 3 4 5 6 7 8))", "(1 5 2 6 3 7 4 8)");
 			TEST("((repeat riff-shuffle) (list 1 2 3 4 5 6 7 8))", "(1 3 5 7 2 4 6 8)");
 			TEST("(riff-shuffle (riff-shuffle (riff-shuffle (list 1 2 3 4 5 6 7 8))))", "(1 2 3 4 5 6 7 8)");
+
+			// Repositional end marker for specific unit testing
 			goto end;
 
 			end:
@@ -741,11 +738,15 @@ namespace SchemingSharply.Scheme
 	}
 
 	public class StandardEval : SchemeEval {
+		protected uint stepCounter = 0;
+		public override uint Steps => stepCounter;
+
 		public override Cell Eval(Cell Arg, SchemeEnvironment Env) {
 			return Result = InternalEval(Arg, Env);
 		}
 		protected Cell InternalEval(Cell x, SchemeEnvironment env)
 		{
+			++stepCounter;
 			if (x.Type == CellType.SYMBOL)
 				return env.Find(x.Value)[x.Value];
 			if (x.Type == CellType.NUMBER)
@@ -1031,6 +1032,8 @@ namespace SchemingSharply.Scheme
 								Env = new Cell(envNew);
 								X = Proc.ListValue[2];
 								break;
+							default:
+								throw new SchemeException(string.Format("Cannot execute: {0} with arguments {1}", Proc, Exps));
 						}
 						break;
 
@@ -1042,8 +1045,8 @@ namespace SchemingSharply.Scheme
 			}
 		}
 
-		protected uint LastSteps = 0;
-		public override uint Steps => LastSteps;
+		protected uint stepCounter = 0;
+		public override uint Steps => stepCounter;
 
 		public override Cell Eval(Cell Arg, SchemeEnvironment Env) {
 			return Result = InternalEval(Arg, Env);
@@ -1053,7 +1056,7 @@ namespace SchemingSharply.Scheme
 			FrameState state = new FrameState(Arg, new Cell(Env));
 			while (!state.IsDone())
 				state.SingleStep();
-			LastSteps = state.Steps;
+			stepCounter += state.Steps;
 			return state.Result;
 		}
 	}

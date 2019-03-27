@@ -619,27 +619,24 @@ namespace SchemingSharply
 				}
 				return codeCache[filepath];
 			}
-			protected Machine machine;
+
+			protected uint stepCounter = 0;
 			public override Cell Eval(Cell Arg, SchemeEnvironment Env) {
 				CodeResult cr = GetCodeResult("Eval.asm");
-				machine = new Machine(cr, new Cell[]{ Arg, new Cell(Env) });
+				Machine machine = new Machine(cr, new Cell[]{ Arg, new Cell(Env) });
 				machine.DebugMode = useDebug;
 				while (machine.Finished == false)
 					machine.Step();
+				stepCounter += machine.Steps;
 				return Result = machine.A;
 			}
-			public override uint Steps => (machine != null) ? machine.Steps : 0;
+			public override uint Steps => stepCounter;
 			protected bool useDebug = false;
 			public override bool IsDebug() {
-				if (machine != null)
-					return machine.DebugMode;
 				return useDebug;
 			}
 			public override void SetDebug(bool val) {
-				if (machine != null)
-					useDebug = machine.DebugMode = val;
-				else
-					useDebug = val;
+				useDebug = val;
 			}
 		}
 

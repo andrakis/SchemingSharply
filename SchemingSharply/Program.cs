@@ -268,7 +268,6 @@ namespace SchemingSharply {
 				Cell result = new Cell(CellType.LIST);
 				result.ListValue.Add(new Cell(results.Success));
 				result.ListValue.Add(new Cell(results.Failures));
-				Evaluator.SetResult(result);
 				return result;
 			}));
 
@@ -301,12 +300,14 @@ namespace SchemingSharply {
 					Stopwatch sw = new Stopwatch();
 					sw.Start();
 					Cell entered = StandardRuntime.Read(entry);
-					LastExecutedSteps = 0;
+					LastExecutedSteps = Evaluator.Steps;
 					Cell result = DoEval(entered, env);
+					string steps = (Evaluator.Steps - LastExecutedSteps).ToString();
+					if (Evaluator.Steps < LastExecutedSteps) steps = "??";
 					sw.Stop();
 					Console.WriteLine("===> {0}", result);
 					if (timing)
-						Console.WriteLine("=== Executed {0} steps in {1}ms", LastExecutedSteps, sw.ElapsedMilliseconds);
+						Console.WriteLine("=== Executed {0} steps in {1}ms", steps, sw.ElapsedMilliseconds);
 					history.Add(result);
 				} catch (Exception e) {
 					Console.WriteLine("!!!> {0}", e.Message);
@@ -314,7 +315,7 @@ namespace SchemingSharply {
 			}
 		}
 
-		static ulong LastExecutedSteps = 0;
+		static uint LastExecutedSteps = 0;
 		protected static Cell DoEval(Cell code, SchemeEnvironment env) {
 			// Update/set (debug) function
 			env.Insert("debug", new Cell(btargs => {
@@ -326,7 +327,6 @@ namespace SchemingSharply {
 			}));
 			Evaluator.Debug = Debug;
 			Evaluator.Eval(code, env);
-			LastExecutedSteps = Evaluator.Steps;
 			return Evaluator.Result;
 		}
 
