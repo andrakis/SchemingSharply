@@ -287,6 +287,22 @@ if_xl0_ne_define:
 	;   }
 
 if_xl0_ne_lambda:
+	; if (xl0 == "macro") {
+	DATA "macro"
+	EQK
+	BZ if_xl0_ne_macro
+	; x.type = MAcro
+	LEA x
+	PUSH
+	DATA $CellType.MACRO
+	CELLSETTYPE
+	; x.env = env
+	LEA env
+	CELLSETENV
+	POP
+	LEAVE
+
+if_xl0_ne_macro:
 	DATA "begin"
 	EQK
 	BZ if_xl0_ne_begin
@@ -357,13 +373,28 @@ if_xl0_ne_symbol:
 	DATA $CellType.LIST
 	CELLNEW
 	SEA exps
-	; while(x.listvalue.count > 0) {
-	LEA x
 	; skip first element
+	LEA x
 	PUSH
 	CELLTAIL
 	ADJ 1
+	PUSH   ; keep exps on stack
+	; if(proc.type == Macro)
+	LEA proc
+	CELLTYPE
 	PUSH
+	DATA $CellType.MACRO
+	EQ
+	BZ eval_exps_while_head
+	;    exps = x.tail()
+	POP
+	SEA exps
+; BREAK
+	JMP eval_exps_done
+	; else
+eval_exps_while_head:
+	PEEK
+	;   while(x.listvalue.count > 0) {
 eval_exps_while:
 	CELLCOUNT
 	PUSH
@@ -431,20 +462,59 @@ eval_exps_done:
 	JMP eval_tail_recurse
 
 eval_proc_ne_lambda:
-	; return proc.ProcValue(exps)
+	; if (proc.type == Macro) {
+	LEA proc
+	CELLTYPE
+	PUSH
+	DATA $CellType.MACRO
+	EQK
+	BZ eval_proc_ne_macro
+	ADJ 1
+	; a) proc.list[1] contains parameter names
+	; b) proc.list[2] contains lambda body
+	; 1) Push proc.list[2]
+	; 2) Create new environment parented to current env, using proc.list[1]
+	;    as keys and exps as values.
+	; 3) return eval(proc.list[2], newenv)
+	LEA proc
+	PUSH  ; *stack++ = proc
+	DATA $2
+	CELLINDEX ; a = *stack[a] (proc)
+	PUSH  ; *stack++ = proc.list[2]
+	SWITCH ; switch *stack and *stack-1 (get back to proc)
+	DATA $1
+	CELLINDEX ; a = *stack[a] (proc)
+	ADJ 1 ; remove proc from stack
+	PUSH  ; *stack++ = proc.list[1]
+	LEA exps
+	PUSH  ; *stack++ = env
+	LEA proc
+	CELLGETENV
+	ENVNEW; A = new env(*stack+1, *stack, A.Environment)
+	ADJ 1 ; remove proc.list[1]
+	PUSH  ; *stack++ = newenv
+	JSR eval
+	ADJ 2
+	SEA x
+	JMP eval_tail_recurse
+
+eval_proc_ne_macro:
+	; if (proc.type == PROC)
 	DATA $CellType.PROC
 	EQK
 	BZ eval_proc_ne_proc
+	; return proc.ProcValue(exps)
 	LEA exps PUSH
 	LEA proc
 	CELLINVOKE
 	LEAVE
 
 eval_proc_ne_proc:
-	; return proc.ProcValueEnv(exps, env)
+	; if (proc.type == PROCENV)
 	DATA $CellType.PROCENV
 	EQK
 	BZ eval_proc_ne_procenv
+	; return proc.ProcValueEnv(exps, env)
 	LEA exps PUSH
 	LEA env PUSH
 	LEA proc

@@ -40,6 +40,12 @@ Implemented milestones:
 
 ***(Most recent first)***
 
+* Version 1.0.4.0 released
+
+* All three evaluators brought up-to-date, and passing all tests.
+
+* Implemented macro system.
+
 * Version 1.0.2.0 released
 
 * The frame evaluator is now the default evaluator.

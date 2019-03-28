@@ -744,6 +744,15 @@ namespace SchemingSharply.Scheme
 			TEST("((repeat riff-shuffle) (list 1 2 3 4 5 6 7 8))", "(1 3 5 7 2 4 6 8)");
 			TEST("(riff-shuffle (riff-shuffle (riff-shuffle (list 1 2 3 4 5 6 7 8))))", "(1 2 3 4 5 6 7 8)");
 
+			Console.WriteLine("Macro tests=======");
+			//TEST("(define do (macro (expr) (expr)))", "#Macro");
+			TEST("(define abc 1)", "1");
+			TEST("(define get! (macro (var) var)))", "#Macro((var) var)");
+			TEST("(get! abc)", "1");
+			TEST("(define incr (macro (var n) (list (quote set!) var (list (quote +) n (list (quote get!) var)))))", "#Macro((var n) (list (quote set!) var (list (quote +) n (list (quote get!) var))))");
+			TEST("(incr abc 2)", "3");
+			TEST("(get! abc)", "3");
+
 			// Repositional end marker for specific unit testing
 			goto end;
 
@@ -767,6 +776,7 @@ namespace SchemingSharply.Scheme
 		}
 		protected Cell InternalEval(Cell x, SchemeEnvironment env)
 		{
+			recurse:
 			++stepCounter;
 			if (x.Type == CellType.SYMBOL)
 				return env.Find(x.Value)[x.Value];
@@ -789,7 +799,8 @@ namespace SchemingSharply.Scheme
 							alt = x.ListValue[3];
 						Cell testval = Eval(test, env);
 						Cell final = testval == StandardRuntime.False ? alt : conseq;
-						return Eval(final, env);
+						x = final;
+						goto recurse;
 					case "set!":  // (set! var exp) - must exist
 						return env.Find(x.ListValue[1].Value)[x.ListValue[1].Value] = Eval(x.ListValue[2], env);
 					case "define":// (define var exp) - creates new
@@ -800,23 +811,36 @@ namespace SchemingSharply.Scheme
 						x.Type = CellType.LAMBDA;
 						x.Environment = env;
 						return x;
+					case "macro": // (macro (var*) exp)
+						x.Type = CellType.MACRO;
+						x.Environment = env;
+						return x;
 					case "begin": // (begin exp*)
 						for (int i = 1; i < x.ListValue.Count - 1; ++i)
 							Eval(x.ListValue[i], env);
-						return Eval(x.ListValue.Last(), env);
+						// tail recurse
+						x = x.ListValue.Last();
+						goto recurse;
 				}
 			}
 			// (proc exp*)
 			Cell proc = Eval(x.ListValue[0], env);
 			List<Cell> exps = new List<Cell>();
-			for (int i = 1; i < x.ListValue.Count; ++i)
-				exps.Add(Eval(x.ListValue[i], env));
-			if (proc.Type == CellType.LAMBDA)
-			{
+			if (proc.Type == CellType.MACRO) {
+				exps = x.Tail().ListValue;
+			} else { 
+				for (int i = 1; i < x.ListValue.Count; ++i)
+					exps.Add(Eval(x.ListValue[i], env));
+			}
+			if (proc.Type == CellType.LAMBDA) {
+				env = new SchemeEnvironment(proc.ListValue[1].ListValue, exps, proc.Environment);
+				x = proc.ListValue[2];
+				goto recurse;
+			} else if (proc.Type == CellType.MACRO) { 
 				SchemeEnvironment env2 = new SchemeEnvironment(proc.ListValue[1].ListValue, exps, proc.Environment);
-				return Eval(proc.ListValue[2], env2);
-			} else if(proc.Type == CellType.PROC)
-			{
+				x = Eval(proc.ListValue[2], env2);
+				goto recurse;
+			} else if (proc.Type == CellType.PROC) {
 				return proc.ProcValue(exps.ToArray());
 			}
 
@@ -841,6 +865,7 @@ namespace SchemingSharply.Scheme
 			PROC,
 			EXPS,
 			EXEC_PROC,
+			EXEC_MACRO,
 			SUBFRAME = 0x100,
 			SUBFRAME_FIN = 0x200,
 			DONE = 0x500
@@ -941,6 +966,7 @@ namespace SchemingSharply.Scheme
 
 									case "macro":
 										Step = FrameStep.DONE;
+										X.Environment = Env.Environment;
 										X.Type = CellType.MACRO;
 										Result = X;
 										break;
@@ -1033,6 +1059,8 @@ namespace SchemingSharply.Scheme
 						break;
 
 					case FrameStep.EXEC_PROC:
+						SchemeEnvironment parent, envNew;
+
 						switch (Proc.Type) {
 							case CellType.PROC:
 								Result = Proc.ProcValue(Exps.ListValue.ToArray());
@@ -1045,23 +1073,35 @@ namespace SchemingSharply.Scheme
 								break;
 
 							case CellType.LAMBDA:
-							case CellType.MACRO:
-								SchemeEnvironment parent = (Proc.Type == CellType.MACRO) ? Env.Environment : Proc.Environment;
-								SchemeEnvironment envNew = new SchemeEnvironment(Proc.ListValue[1].ListValue, Exps.ListValue, parent);
+								parent = Proc.Environment;
+								envNew = new SchemeEnvironment(Proc.ListValue[1], Exps, parent);
 								// Tail recurse
 								Step = FrameStep.ENTER;
 								Env = new Cell(envNew);
 								X = Proc.ListValue[2];
 								break;
+
+							case CellType.MACRO:
+								parent = Proc.Environment;
+								envNew = new SchemeEnvironment(Proc.ListValue[1], Exps, parent);
+								// Execute macro in envNew
+								Step = FrameStep.EXEC_MACRO | FrameStep.SUBFRAME;
+								Subframe = new FrameState(Proc.ListValue[2], new Cell(envNew));
+								break;
+
 							default:
 								throw new SchemeException(string.Format("Cannot execute: {0} with arguments {1}", Proc, Exps));
 						}
 						break;
 
-					case FrameStep.EXEC_PROC | FrameStep.SUBFRAME_FIN:
-						Result = Subframe.Result;
-						Step = FrameStep.DONE;
+					case FrameStep.EXEC_MACRO | FrameStep.SUBFRAME_FIN:
+						// Tail recurse with this result
+						Step = FrameStep.ENTER;
+						X = Subframe.Result;
 						break;
+
+					default:
+						throw new SchemeException("Unimplemented step: " + Step.ToString());
 				}
 			}
 		}
