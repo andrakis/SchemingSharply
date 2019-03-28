@@ -225,8 +225,8 @@ namespace SchemingSharply.Scheme
 				case CellType.LAMBDA:
 				case CellType.MACRO:
 					string r = c.Type == CellType.LAMBDA ? "#Lambda(" : "#Macro(";
-					r += listToString(c.ListValue[1].ListValue);
-					r += " " + listToString(c.ListValue[2].ListValue);
+					r += c.ListValue[1].ToString();
+					r += " " + c.ListValue[2].ToString();
 					r += ")";
 					return r;
 				case CellType.ENVPTR:
@@ -315,10 +315,31 @@ namespace SchemingSharply.Scheme
 			outer = Outer;
 		}
 
-		public SchemeEnvironment(List<Cell> keys, List<Cell> values, SchemeEnvironment Outer)
-		{
+		public SchemeEnvironment(List<Cell> keys, List<Cell> values, SchemeEnvironment Outer) {
 			outer = Outer;
-			for (int i = 0; i < keys.Count; ++i)
+			AddRange(keys, values);
+		}
+
+		public SchemeEnvironment(Cell keys, Cell values, SchemeEnvironment Outer) {
+			outer = Outer;
+
+			List<Cell> lc_keys = new List<Cell>();
+			List<Cell> lc_values = new List<Cell>();
+			if (keys.Type == CellType.LIST) {
+				// List of keys
+				lc_keys.AddRange(keys.ListValue);
+				lc_values.AddRange(values.ListValue);
+			}  else {
+				// Single key capturing multiple arguments
+				lc_keys.Add(keys);
+				// Make into single list
+				lc_values.Add(values);
+			}
+			AddRange(lc_keys, lc_values);
+		}
+
+		public void AddRange(List<Cell> keys, List<Cell> values) { 
+			for (int i = 0; i < keys.Count(); ++i)
 				Insert(keys[i].Value, values[i]);
 		}
 
@@ -667,7 +688,7 @@ namespace SchemingSharply.Scheme
 			Console.WriteLine("Unit tests=======");
 			Action<string, string> TEST = (string code, string expected) => {
 				if (AssertEqual(EvalString(code), new Cell(expected))) {
-					//Console.WriteLine("PASS: {0} == {1}", code, expected);
+					Console.WriteLine("PASS: {0} == {1}", code, expected);
 				} else {
 					Console.WriteLine("FAIL: {0}", code);
 				}

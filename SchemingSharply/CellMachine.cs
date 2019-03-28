@@ -78,6 +78,7 @@ namespace SchemingSharply
 			[HasArgument]
 			HALTMSG,// Print message in data slot provided
 			STATE,  // Print Machine state
+			BREAK,  // Break in debugger
 		}
 
 		public static class EnumExtensions
@@ -374,6 +375,10 @@ namespace SchemingSharply
 						finished = true;
 						if(DebugMode)
 							Console.WriteLine("!Exit with code {0}", A);
+						break;
+
+					case OpCode.BREAK:
+						System.Diagnostics.Debugger.Break();
 						break;
 
 					default:
