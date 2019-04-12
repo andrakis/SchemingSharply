@@ -770,27 +770,44 @@ namespace SchemingSharply.Scheme
 	public class StandardEval : SchemeEval {
 		protected uint stepCounter = 0;
 		public override uint Steps => stepCounter;
+		protected bool debug = false;
+		public override bool IsDebug() => debug;
+		public override void SetDebug(bool val) => debug = val;
+		protected int depth = -1;
 
 		public override Cell Eval(Cell Arg, SchemeEnvironment Env) {
 			return Result = InternalEval(Arg, Env);
 		}
 		protected Cell InternalEval(Cell x, SchemeEnvironment env)
 		{
-			recurse:
+			Cell original = x;
+			++depth;
+		recurse:
+			if (debug) {
+				if(original != x)
+					Console.WriteLine("{0}) {1} => {2}", new string('-', depth), original, x);
+				else
+					Console.WriteLine("{0}) {1}", new string('-', depth), x);
+			}
 			++stepCounter;
-			if (x.Type == CellType.SYMBOL)
-				return env.Find(x.Value)[x.Value];
+			if (x.Type == CellType.SYMBOL) {
+				x = env.Find(x.Value)[x.Value];
+				goto done;
+			}
 			if (x.Type == CellType.NUMBER)
-				return x;
-			if (x.ListValue.Count == 0)
-				return StandardRuntime.Nil;
+				goto done;
+			if (x.ListValue.Count == 0) {
+				x = StandardRuntime.Nil;
+				goto done;
+			}
 			if (x.ListValue[0].Type == CellType.SYMBOL)
 			{
 				Cell sym = x.ListValue[0];
 				switch((string)sym)
 				{
 					case "quote": // (quote exp)
-						return x.ListValue[1];
+						x = x.ListValue[1];
+						goto done;
 					case "if":    // (if test conseq [alt])
 						Cell test = x.ListValue[1];
 						Cell conseq = x.ListValue[2];
@@ -802,19 +819,21 @@ namespace SchemingSharply.Scheme
 						x = final;
 						goto recurse;
 					case "set!":  // (set! var exp) - must exist
-						return env.Find(x.ListValue[1].Value)[x.ListValue[1].Value] = Eval(x.ListValue[2], env);
+						x = env.Find(x.ListValue[1].Value)[x.ListValue[1].Value] = Eval(x.ListValue[2], env);
+						goto done;
 					case "define":// (define var exp) - creates new
 						Cell b = Eval(x.ListValue[2], env);
 						env.Insert(x.ListValue[1].Value, b);
-						return b;
+						x = b;
+						goto done;
 					case "lambda":// (lambda (var*) exp)
 						x.Type = CellType.LAMBDA;
 						x.Environment = env;
-						return x;
+						goto done;
 					case "macro": // (macro (var*) exp)
 						x.Type = CellType.MACRO;
 						x.Environment = env;
-						return x;
+						goto done;
 					case "begin": // (begin exp*)
 						for (int i = 1; i < x.ListValue.Count - 1; ++i)
 							Eval(x.ListValue[i], env);
@@ -841,10 +860,21 @@ namespace SchemingSharply.Scheme
 				x = Eval(proc.ListValue[2], env2);
 				goto recurse;
 			} else if (proc.Type == CellType.PROC) {
-				return proc.ProcValue(exps.ToArray());
+				x = proc.ProcValue(exps.ToArray());
+				goto done;
+			} else if (proc.Type == CellType.PROCENV) {
+				x = proc.ProcEnvValue(exps.ToArray(), env);
+				goto done;
 			}
 
 			throw new SchemeException("Invalid item in Eval");
+
+		done:
+			if(debug) {
+				Console.WriteLine("{0}) {1} => {2} ", new string('-', depth), original, x);
+			}
+			--depth;
+			return x;
 		}
 	}
 
