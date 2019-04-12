@@ -117,6 +117,7 @@ namespace SchemingSharply {
 
 			SchemeEnvironment env = new SchemeEnvironment();
 			StandardRuntime.AddGlobals(env);
+			AddProgramGlobals(env);
 
 			if (PArgs.Tests)
 				RunTests();
@@ -186,15 +187,7 @@ namespace SchemingSharply {
 			char[] chars = Encoding.UTF8.GetChars(bytes, 0, outputLength);
 			return new string(chars);
 		}
-		static void REPL(SchemeEnvironment env = null) {
-			if (env == null) {
-				env = new SchemeEnvironment();
-				StandardRuntime.AddGlobals(env);
-			}
-
-			ISchemeEval evaluator;
-			evaluator = new CellMachineEval();
-
+		static void AddProgramGlobals(SchemeEnvironment env) {
 			List<Cell> history = new List<Cell>();
 			bool quit = false;
 			bool timing = false;
@@ -272,9 +265,14 @@ namespace SchemingSharply {
 			}));
 
 			env.Insert("help", new Cell(args => {
-				Console.WriteLine("SchemingSharply v {0}", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version);
+				Console.Write("SchemingSharply v {0}", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version);
+#if DEBUG
+				Console.WriteLine(" debug");
+#else
+				Console.WriteLine(" release");
+#endif
 				Console.WriteLine("Type `quit' or `\\q' to quit");
-				//Console.WriteLine("Type `(env-str (env))' to display environment");
+				Console.WriteLine("Type `(env-str (env))' to display environment");
 				//Console.WriteLine("Use `(eval expr)' or `(eval expr (env))' for testing");
 				Console.WriteLine("Use `(h n)' to view history item n");
 				Console.WriteLine("Use `(timing #true)` to enable timing, `(debug #true)` to enable debugging");
@@ -284,35 +282,40 @@ namespace SchemingSharply {
 				Console.WriteLine();
 				return StandardRuntime.Nil;
 			}));
-
-			env["help"].ProcValue(new Cell[] { }); // invoke
-
-			while(!quit) { 
-				int index = history.Count;
-				string entry = ReadLine(string.Format("{0}> ", index)).Trim();
-				if (entry.Equals("quit", StringComparison.OrdinalIgnoreCase) ||
-					entry.Equals("exit", StringComparison.OrdinalIgnoreCase) ||
-					entry == "\\q")
-					break;
-				if (entry.Equals(""))
-					continue;
-				try {
-					Stopwatch sw = new Stopwatch();
-					sw.Start();
-					Cell entered = StandardRuntime.Read(entry);
-					LastExecutedSteps = Evaluator.Steps;
-					Cell result = DoEval(entered, env);
-					string steps = (Evaluator.Steps - LastExecutedSteps).ToString();
-					if (Evaluator.Steps < LastExecutedSteps) steps = "??";
-					sw.Stop();
-					Console.WriteLine("===> {0}", result);
-					if (timing)
-						Console.WriteLine("=== Executed {0} steps in {1}ms", steps, sw.ElapsedMilliseconds);
-					history.Add(result);
-				} catch (Exception e) {
-					Console.WriteLine("!!!> {0}", e.Message);
+			env.Insert("repl", new Cell(args => {
+				quit = false;
+				while (!quit) {
+					int index = history.Count;
+					string entry = ReadLine(string.Format("{0}> ", index)).Trim();
+					if (entry.Equals("quit", StringComparison.OrdinalIgnoreCase) ||
+						entry.Equals("exit", StringComparison.OrdinalIgnoreCase) ||
+						entry == "\\q")
+						break;
+					if (entry.Equals(""))
+						continue;
+					try {
+						Stopwatch sw = new Stopwatch();
+						sw.Start();
+						Cell entered = StandardRuntime.Read(entry);
+						LastExecutedSteps = Evaluator.Steps;
+						Cell result = DoEval(entered, env);
+						string steps = (Evaluator.Steps - LastExecutedSteps).ToString();
+						if (Evaluator.Steps < LastExecutedSteps) steps = "??";
+						sw.Stop();
+						Console.WriteLine("===> {0}", result);
+						if (timing)
+							Console.WriteLine("=== Executed {0} steps in {1}ms", steps, sw.ElapsedMilliseconds);
+						history.Add(result);
+					} catch (Exception e) {
+						Console.WriteLine("!!!> {0}", e.Message);
+					}
 				}
-			}
+				return StandardRuntime.Nil;
+			}));
+		}
+		static void REPL(SchemeEnvironment env) {
+			env["help"].ProcValue(new Cell[] { }); // invoke
+			env["repl"].ProcValue(new Cell[] { }); // invoke
 		}
 
 		static uint LastExecutedSteps = 0;
