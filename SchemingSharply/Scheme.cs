@@ -390,26 +390,6 @@ namespace SchemingSharply.Scheme
 		}
 	}
 
-	public struct ProcessState
-	{
-		public List<Cell> Stack;
-		public int[] Code;
-		public string[] Data;
-
-		// State
-		public int SP, BP;
-		public Cell Accumulator;
-
-		public ProcessState (int[] code, string[] data)
-		{
-			Stack = new List<Cell>();
-			Code = code;
-			Data = data;
-			SP = BP = 0;
-			Accumulator = new Cell();
-		}
-	}
-
 	public static class StandardRuntime
 	{
 		public static Cell Nil = new Cell((string)null);
@@ -886,6 +866,7 @@ namespace SchemingSharply.Scheme
 
 		[Flags]
 		public enum FrameStep : uint {
+			NONE,
 			ENTER,
 			BUILTIN,
 			BEGIN,
@@ -1149,6 +1130,43 @@ namespace SchemingSharply.Scheme
 				state.SingleStep();
 			stepCounter += state.Steps;
 			return state.Result;
+		}
+	}
+
+	public class StacklessFrameEval : FrameEval
+	{
+		public struct StacklessState
+		{
+			public Stack<FrameState> State { get; set; }
+			public Cell Item { get; private set; }
+			public Cell Environment { get; private set; }
+
+			private bool finished;
+			public bool Finished { get { return finished; } }
+			private int steps;
+			public int Steps { get { return steps; } }
+
+			public StacklessState(Cell item, Cell env) {
+				State = new Stack<FrameState>();
+				Item = item;
+				Environment = env;
+				State.Push(new FrameState(item, env));
+				finished = false;
+				steps = 0;
+			}
+
+			public void SingleStep () {
+				FrameStep step = FrameStep.NONE;
+			}
+		}
+
+		public override Cell Eval(Cell Arg, SchemeEnvironment Env) {
+			return internalEval(Arg, Env);
+		}
+
+		protected Cell internalEval(Cell Arg, SchemeEnvironment Env) {
+			StacklessState state = new StacklessState(Arg, new Cell(Env));
+			throw new NotImplementedException();
 		}
 	}
 }
