@@ -66,9 +66,24 @@ namespace SchemingPlusPlus {
 			while (*s) {
 				while (isspace(*s))
 					++s;
-				if (*s == '(' || *s == ')')
+				if (*s == ';' && *(s+1) == ';')
+					while (*s && *s != '\n' && *s != '\r') ++s;
+				else if (*s == '(' || *s == ')')
 					tokens.push_back(*s++ == '(' ? "(" : ")");
-				else {
+				else if (*s == '"' || *s == '\'') {
+					const char *t = s;
+					const char sp = *s;
+					int escape = 0;
+					do {
+						++t;
+						if (escape != 0) escape--;
+						if(*t == '\\')
+							escape = 2; // skip this and the next character
+					} while (*t && (escape != 0 || *t != sp));
+					++t;
+					tokens.push_back(std::string(s, t));
+					s = t;
+				} else {
 					const char *t = s;
 					while (*t && !isspace(*t) && *t != '(' && *t != ')')
 						++t;
@@ -87,7 +102,7 @@ namespace SchemingPlusPlus {
 				return SchemeCell(token, FLOAT);
 			} else if (token[0] == QUOTE_DOUBLE) { // "String"
 				auto len = token.length();
-				runtime_assert(token[len] == QUOTE_DOUBLE);
+				runtime_assert(token[len - 1] == QUOTE_DOUBLE);
 				return SchemeCell(token.substr(1, len - 2), STRING);
 			}	
 			return SchemeCell(token, SYMBOL);

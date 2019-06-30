@@ -7,6 +7,7 @@ namespace SchemingPlusPlus {
 				runtime_assert(env.Environment != nullptr);
 				return env.Environment->Find(x.Value)[x.Value];
 			}
+			if (x.Type == STRING) return x;
 			if (x.Type == INTEGER || x.Type == FLOAT) return x;
 			if (x.Empty()) return SchemeConstants::Nil;
 

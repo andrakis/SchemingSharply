@@ -523,7 +523,7 @@ namespace SchemingSharply.Scheme
 					do {
 						++t;
 						if (escape != 0) escape--;
-						if (str[s] == '\\')
+						if (str[t] == '\\')
 							escape = 2; // skip this and the next character
 					} while (t < str.Length && (escape != 0 || str[t] != sp));
 					++t;
