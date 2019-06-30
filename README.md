@@ -1,6 +1,8 @@
 # SchemingSharply
 Adventures in Scheme on C#
 
+(And a [minor in C++](https://github.com/andrakis/SchemingSharply/tree/master/SchemingPlusPlus))
+
 # About
 Implements a Scheme environment, and several different Scheme evaluators:
 
@@ -39,6 +41,8 @@ Implemented milestones:
 -----------------------
 
 ***(Most recent first)***
+
+* C++ port passes all tests.
 
 * Version 1.0.4.0 released
 

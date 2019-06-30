@@ -22,11 +22,13 @@ namespace SchemingPlusPlus {
 
 		class SchemeParser {
 		public:
+			SchemeParser();
 			SchemeParser(const std::string &);
 			~SchemeParser();
 
 			static SchemeCell TokeniseString(const std::string &);
 
+			void reset(std::string to) { str = to; }
 			SchemeCell read();
 
 			TokenVectorType tokenise(const std::string &) const;

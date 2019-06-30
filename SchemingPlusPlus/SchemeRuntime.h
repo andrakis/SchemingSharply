@@ -28,6 +28,9 @@ namespace SchemingPlusPlus {
 			static SchemeCell proc_append(const VectorType &args) SCHEME_THROW;
 			static SchemeCell proc_cons(const VectorType &args) SCHEME_THROW;
 			static SchemeCell proc_list(const VectorType &args);
+			// IO functions
+			static SchemeCell proc_print(const VectorType &args);
+			static SchemeCell proc_expr(const VectorType &args);
 
 			static bool IsBasicType(CellType type);
 			static bool CanCoerce(CellType from, CellType to);

@@ -54,7 +54,7 @@ namespace SchemingPlusPlus {
 			TEST("(define x 3)", "3");
 			TEST("x", "3");
 			TEST("(+ x x)", "6");
-			// Not working - TEST("(begin (define x 1) (set! x (+ x 1)) (+ x 1))", "3");
+			TEST("(begin (define x 1) (set! x (+ x 1)) (+ x 1))", "3");
 			TEST("((lambda (x) (+ x x)) 5)", "10");
 			TEST("(define twice (lambda (x) (* 2 x)))", "<Lambda>");
 			TEST("(twice 5)", "10");

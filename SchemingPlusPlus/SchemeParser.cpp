@@ -5,6 +5,9 @@
 
 namespace SchemingPlusPlus {
 	namespace Core {
+		SchemeParser::SchemeParser() {
+			this->str = "";
+		}
 		SchemeParser::SchemeParser(const std::string &str) {
 			this->str = str;
 		}

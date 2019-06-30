@@ -7,8 +7,8 @@ namespace SchemingPlusPlus {
 		class SchemeEvaluator {
 		protected:
 			SchemeEvaluator() { }
-			virtual ~SchemeEvaluator() { }
 		public:
+			virtual ~SchemeEvaluator() { }
 			virtual SchemeCell Eval(const SchemeCell &x, const SchemeCell &env) THROW(critical_error) = 0;
 		};
 	}

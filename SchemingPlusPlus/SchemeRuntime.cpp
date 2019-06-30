@@ -1,9 +1,11 @@
+#include <iostream>
 #include <string>
 
 #include "SchemeAssert.h"
 #include "SchemeRuntime.h"
 #include "SchemeCell.h"
 #include "SchemeEnvironment.h"
+#include "TextUtils.h"
 
 namespace SchemingPlusPlus {
 	namespace Core {
@@ -180,6 +182,19 @@ namespace SchemingPlusPlus {
 			return SchemeCell(args);
 		}
 
+		// SchemeCell mapper function
+		auto map_cell_to_string(bool expr) {
+			return [expr] (const SchemeCell &cell) { return cell.ToString(expr); };
+		}
+		// IO functions
+		SchemeCell SchemeRuntime::proc_print(const VectorType &args) {
+			std::cout << TextUtils::Join(args, " ", map_cell_to_string(false)) << std::endl;
+			return SchemeConstants::Nil;
+		}
+		SchemeCell SchemeRuntime::proc_expr(const VectorType &args) {
+			return SchemeCell(TextUtils::Join(args, " ", map_cell_to_string(true)), STRING);
+		}
+
 		void SchemeRuntime::AddGlobals(EnvironmentType _env) {
 			SchemeEnvironment &env = *_env;
 			env["nil"] = SchemeConstants::Nil;
@@ -196,6 +211,8 @@ namespace SchemingPlusPlus {
 			env["head"] = proc_head; env["tail"] = proc_tail;
 			env["append"] = proc_append; env["cons"] = proc_cons;
 			env["list"] = proc_list;
+			// IO functions
+			env["print"] = proc_print; env["expr"] = proc_expr;
 		}
 	}
 }

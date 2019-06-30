@@ -27,10 +27,8 @@ namespace SchemingPlusPlus {
 				if (sym.Value == "set!") { // (set! var exp) - must exist
 					return env.Environment->Find(x[1].Value)[x[1].Value] = Eval(x[2], env);
 				}
-				if (sym.Value == "define") { // (define var exp) - creates new
-					SchemeCell result = Eval(x[2], env);
-					env.Environment->Insert(x[1].Value, result);
-					return result;
+				if (sym.Value == "define") { // (define var exp) - creates new or updates existing
+					return (*env.Environment)[x.ListValue[1].Value] = Eval(x.ListValue[2], env);
 				}
 				if (sym.Value == "lambda") { // (lambda (var*) exp)
 					SchemeCell copy(x);
