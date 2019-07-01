@@ -8,7 +8,7 @@
 
 using namespace SchemingPlusPlus;
 
-const std::string version = "0.15";
+const std::string version = "0.19";
 
 struct ReplState;
 typedef void(*ReplModifier)(ReplState&);

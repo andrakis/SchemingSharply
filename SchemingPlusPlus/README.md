@@ -36,6 +36,12 @@ Implemented milestones:
 
 ***(Most recent first)***
 
+* Version 0.19 released.
+
+* Makefile added.
+
+* SimpleEval is now tail recursive
+
 * Version 0.15 released.
 
 * C++ port passes all tests.
