@@ -75,6 +75,26 @@ namespace SchemingSharply
 		public override bool Finished => true;
 	}
 
+	public interface ITaskState {
+		bool Finished { get; }
+		Cell Result { get; }
+	}
+
+	public class TaskState : ITaskState {
+		public bool Finished { get; set; }
+		public Cell Result { get; set; }
+		public TaskState<StateType> ToState<StateType> () {
+			return this as TaskState<StateType>;
+		}
+	}
+
+	public class TaskState<StateType> : TaskState {
+		public StateType State { get; set; }
+		public TaskState(StateType state) {
+			State = state;
+		}
+	}
+
 	public class FrameTask : TaskMachineTask
 	{
 		FrameEval.FrameState state;
@@ -93,12 +113,10 @@ namespace SchemingSharply
 		}
 
 		public override void Loop(uint iterations = TaskMachine.Iterations) {
-			while (!state.IsDone() && iterations-- > 0)
-				state.SingleStep();
-			Result = state.Result;
+			throw new NotImplementedException();
 		}
 
-		public override bool Finished => state.IsDone();
+		public override bool Finished => throw new NotImplementedException();
 	}
 
 	public class CellMachineTask : TaskMachineTask

@@ -345,7 +345,8 @@ namespace SchemingSharply {
 			EvalCell    = 0b1000000,
 			EvalAll     = 0b1110000,
 			Release     = CellUnitTest,
-			Debug       = EvalStandard | EvalCell,
+			//Debug       = EvalStandard | EvalCell,
+			Debug       = EvalFrame,
 		}
 		static void RunTests() {
 			UnitTestSelection selection;

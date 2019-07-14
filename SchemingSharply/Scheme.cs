@@ -632,6 +632,7 @@ namespace SchemingSharply.Scheme
 					failures++;
 					return false;
 				} else {
+					//Console.WriteLine("Success : {0} = {1}", a, b);
 					success++;
 					return true;
 				}
@@ -662,6 +663,7 @@ namespace SchemingSharply.Scheme
 				AssertEqual(EvalString("(if (= 1 1) (+ 1 1) (- 1 1))"), new Cell(2));
 			if (1 == 1)
 				AssertEqual(EvalString("(if (= 1 1) (begin 1) (- 1 1))"), new Cell(1));
+			Console.WriteLine("Core tests: passed {0}, failed {1}", success, failures);
 
 			unit:
 			// Unit tests
