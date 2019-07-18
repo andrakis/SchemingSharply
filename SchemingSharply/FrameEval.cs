@@ -164,6 +164,8 @@ namespace SchemingSharply.Scheme {
 
 							case "define":
 							case "set!":
+								// Framestep DEFINE checks value of X to determine whether to invoke a
+								// define or set!
 								fstate.Step = FrameStep.DEFINE | FrameStep.SUBFRAME;
 								task.State.State.Push(new FrameState(fstate.X.ListValue[2], fstate.Env));
 								break;
@@ -200,10 +202,10 @@ namespace SchemingSharply.Scheme {
 
 					case FrameStep.IF_TEST | FrameStep.SUBFRAME_FIN:
 						Cell cons;
-						if (fstate.SubframeResult == StandardRuntime.True)
-							cons = fstate.X.Tail().Tail().Head();
-						else
+						if (fstate.SubframeResult == StandardRuntime.False)
 							cons = fstate.X.Tail().Tail().Tail().HeadOr(StandardRuntime.Nil);
+						else
+							cons = fstate.X.Tail().Tail().Head();
 						// Tail recurse
 						fstate.X = cons;
 						fstate.Step = FrameStep.ENTER;
