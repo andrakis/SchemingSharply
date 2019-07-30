@@ -5,20 +5,34 @@
 //
 // Approach 1: use a map<string,Cell>
 //  Negatives:
-//    - Speed?
-//    - Memory consumption?
+//    - Insertion speed
+//    - Lookup speed
+//    - Memory consumption
 //  Positives:
 //    + Simple
+//    + Better lookup time on strings than unordered_map
 //
 // Approach 2: use a map<Atom,Cell>
 //  where Atom is a subclass of Cell
 //  and a static map<AtomId,Atom> exists
 //  and AtomId is unsigned
 //  Negatives:
-//     - Complexity
+//     - Complexity (must also manage Atom dictionary)
+//     - Insertion speed is lacking due to containing a sorted list
 //  Positives:
-//     + Speed?
-//     + Memory consumption?
+//     + Inherently faster key comparison
+//     + Less memory usage in the environment map
+//     + Faster lookup speed than using string
+//
+// Bonus approach: Use an unordered_map instead of a map.
+// Uses a hash table instead of balanced trees.
+//   Negatives:
+//     - Strings do not hash so well
+//     - Non-sorted, making lookup time potentially slower: O(n)
+//   Positives:
+//     + Integers work well as hash keys
+//     + Non-sorted, making insertion time faster
+//
 #include <chrono>
 #include <iterator>
 #include <iostream>
@@ -30,8 +44,18 @@
 #include <unordered_map>
 #include <vector>
 
+#ifdef _MSC_VER
+  #include <Windows.h>
+  #define IsDebuggerAttached() IsDebuggerPresent()
+  // Windows.h defines these, but we don't want their definitions
+  #undef min
+  #undef max
+#else
+  #define IsDebuggerAttached() false
+#endif
+
 // Use a multiplier for RELEASE mode to really give it some testing
-#if DEBUG || _DEBUG
+#if  _DEBUG
 int it_mult = 1;
 #else
 int it_mult = 50;
@@ -76,6 +100,7 @@ namespace TextUtils {
 
 typedef typename std::chrono::high_resolution_clock ClockType;
 typedef typename std::chrono::microseconds ResolutionType;
+typedef long TimeType;
 
 // A generic cell
 struct Cell;
@@ -139,21 +164,26 @@ private:
 	StringKey _stringValue;
 };
 
-template<typename Callback, typename Resolution = ResolutionType>
-long timeCallback(Callback callback) {
+template<
+	typename Callback,
+	typename Resolution = ResolutionType,
+	typename Time = TimeType>
+Time timeCallback(Callback callback) {
 	auto start = ClockType::now();
 	callback();
 	auto finish = ClockType::now();
 	auto duration = std::chrono::duration_cast<Resolution>(finish - start);
-	return (long)duration.count();
+	return (Time)duration.count();
 }
 
-template<typename Callback, typename Resolution = ResolutionType>
-void reportTime(const std::string &message, Callback callback) {
+template<typename Callback, typename Resolution = ResolutionType, typename Time = TimeType>
+Time reportTime(const std::string &message, Callback callback) {
 	std::stringstream ss;
 	ss << message;
-	ss << timeCallback(callback);
+	Time t = timeCallback(callback);
+	ss << t;
 	Output.add(ss.str());
+	return t;
 }
 
 template<typename KeyType>
@@ -167,24 +197,30 @@ private:
 	Cell _value;
 };
 
+struct TimingInfo {
+	int generation = 0;
+	int insertion = 0;
+	int lookup = 0;
+};
+
 template<
 	typename KeyType, 
 	typename MapType,
 	typename ResultType = KeyGeneratedResult<KeyType>,
 	typename VectorType = std::vector<ResultType>>
-void test(VectorType &keyMap, MapType &valueMap, bool keepResults) {
+void test(VectorType &keyMap, MapType &valueMap, bool keepResults, TimingInfo &info) {
 	if (!keepResults)
 		valueMap.clear();
 
 	// Insertion test
-	reportTime("    Insertion test: ", [&keyMap, &valueMap] () {
+	info.insertion = reportTime("    Insertion test: ", [&keyMap, &valueMap] () {
 		for (auto it = keyMap.cbegin(); it != keyMap.cend(); ++it) {
 			ResultType result = *it;
 			valueMap[result.key()] = result.value();
 		}
 	});
 
-	reportTime("    Lookup test: ", [&keyMap, &valueMap] () {
+	info.lookup = reportTime("    Lookup test: ", [&keyMap, &valueMap] () {
 		for (auto it = keyMap.cbegin(); it != keyMap.cend(); ++it) {
 			ResultType result = *it;
 			valueMap.find(result.key());
@@ -229,22 +265,25 @@ template<
 	typename ResultType = KeyGeneratedResult<KeyType>,
 	typename VectorType = std::vector<ResultType>>
 void testAtoms(VectorType &keys, MapType &values) {
-	for (auto clearingKeys = 0; clearingKeys < 2; ++clearingKeys) {
+	for (auto clearingKeys = 0; clearingKeys < 1; ++clearingKeys) {
 		for (auto iteration = 1; iteration < 3; ++iteration) {
 			auto keyCount = iteration * 50;
 			bool clearKeys = clearingKeys == 0;
 
 			std::stringstream ss;
-			//std::cerr
 			ss << "Iteration " << iteration << ","
 				<< "  Key count: " << keyCount
 				<< "  Clear keys: " << (clearKeys ? "yes" : "no");
 			Output.add(ss.str());
+			ss = std::stringstream(); // clear
 
-			reportTime("    Generate keys: ", [iteration, keyCount, clearKeys, &keys] () {
+			TimingInfo info;
+			info.generation = reportTime("    Generate keys: ", [iteration, keyCount, clearKeys, &keys] () {
 				generateAtomKeys(keyCount, clearKeys, keys);
 			});
-			test<KeyType,MapType>(keys, values, clearKeys);
+			test<KeyType,MapType>(keys, values, clearKeys, info);
+			ss << "    Insert+Lookup: " << info.insertion + info.lookup;
+			Output.add(ss.str());
 		}
 	}
 }
@@ -255,7 +294,7 @@ template<
 	typename ResultType = KeyGeneratedResult<KeyType>,
 	typename VectorType = std::vector<ResultType>>
 void testStrings(VectorType &keys, MapType &values) {
-	for (auto clearingKeys = 0; clearingKeys < 2; ++clearingKeys) {
+	for (auto clearingKeys = 0; clearingKeys < 1; ++clearingKeys) {
 		for (auto iteration = 1; iteration < 3; ++iteration) {
 			auto keyCount = iteration * 50;
 			auto keyLength = iteration * 5;
@@ -267,11 +306,15 @@ void testStrings(VectorType &keys, MapType &values) {
 				<< " nr: " << keyCount
 				<< " Clear keys: " << (clearKeys ? "yes" : "no");
 			Output.add(ss.str());
+			ss = std::stringstream(); // clear
 
-			reportTime("    Generate keys: ", [iteration, keyCount, keyLength, clearKeys, &keys] () {
+			TimingInfo info;
+			info.generation = reportTime("    Generate keys: ", [iteration, keyCount, keyLength, clearKeys, &keys] () {
 				generateStringKeys(keyCount, keyLength, clearKeys, keys);
 			});
-			test<KeyType,MapType>(keys, values, clearKeys);
+			test<KeyType,MapType>(keys, values, clearKeys, info);
+			ss << "    Insert+Lookup: " << info.insertion + info.lookup;
+			Output.add(ss.str());
 		}
 	}
 }
@@ -289,15 +332,22 @@ int main(int argc, char **argv) {
 	Output.add("");
 	Output.add("=== UNOrdered map ATOM test ===");
 	testAtoms(atomKeys, atomMapU);
+	Output.add("");
 
 	Output.add("=== Ordered map STRING test ===");
 	testStrings(stringKeys, stringMap);
 	Output.add("");
 	Output.add("=== UNOrdered map STRING test ===");
 	testStrings(stringKeys, stringMapU);
+	Output.add("");
 
 	std::cerr << Output.collapse() << std::endl;
 	std::cerr << "Iteration multiplier: " << it_mult << std::endl;
+
+	if (IsDebuggerAttached()) {
+		std::cout << "Press [enter] to finish" << std::endl;
+		while (std::cin.get() != '\n') /* Nothing */;
+	}
 
 	return 0;
 }
