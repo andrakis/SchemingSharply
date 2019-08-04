@@ -1,4 +1,4 @@
-//	Timing tests for different implementations of a Scheme environment.
+﻿//	Timing tests for different implementations of a Scheme environment.
 //  Testing:
 //    o Insertion speed
 //    o Lookup speed
@@ -33,6 +33,7 @@
 //     + Integers work well as hash keys
 //     + Non-sorted, making insertion time faster
 //
+#include <algorithm> // std::find
 #include <chrono>
 #include <iterator>
 #include <iostream>
@@ -44,6 +45,14 @@
 #include <unordered_map>
 #include <vector>
 
+// Special configuration
+#define ENSURE_UNIQUE_KEYS false // true
+#if  _DEBUG
+int it_mult = 1;
+#else
+int it_mult = 4000;
+#endif
+
 #ifdef _MSC_VER
   #include <Windows.h>
   #define IsDebuggerAttached() IsDebuggerPresent()
@@ -52,13 +61,6 @@
   #undef max
 #else
   #define IsDebuggerAttached() false
-#endif
-
-// Use a multiplier for RELEASE mode to really give it some testing
-#if  _DEBUG
-int it_mult = 1;
-#else
-int it_mult = 50;
 #endif
 
 // Sourced from: http://coliru.stacked-crooked.com/a/0d56f604931a7441
@@ -98,9 +100,14 @@ namespace TextUtils {
 	}
 } // namespace TextUtils
 
+// Time related utils
 typedef typename std::chrono::high_resolution_clock ClockType;
-typedef typename std::chrono::microseconds ResolutionType;
+typedef typename std::chrono::milliseconds ResolutionType;
+//typedef typename std::chrono::microseconds ResolutionType;
 typedef long TimeType;
+template<typename T> std::string period_type() { return "unknown"; }
+template<> std::string period_type<std::chrono::microseconds>() { return "us"; }
+template<> std::string period_type<std::chrono::milliseconds>() { return "ms"; }
 
 // A generic cell
 struct Cell;
@@ -181,7 +188,7 @@ Time reportTime(const std::string &message, Callback callback) {
 	std::stringstream ss;
 	ss << message;
 	Time t = timeCallback(callback);
-	ss << t;
+	ss << t << period_type<Resolution>();
 	Output.add(ss.str());
 	return t;
 }
@@ -192,6 +199,12 @@ struct KeyGeneratedResult {
 		: _key(key), _value(value) {}
 	KeyType key() const { return _key; }
 	Cell value() const { return _value; }
+	bool operator== (const KeyType &kv) const {
+		return key() == kv;
+	}
+	bool operator== (const KeyGeneratedResult<KeyType> &other) const {
+		return key() == other.key();
+	}
 private:
 	KeyType _key;
 	Cell _value;
@@ -201,6 +214,8 @@ struct TimingInfo {
 	int generation = 0;
 	int insertion = 0;
 	int lookup = 0;
+	int keys_generated = 0;
+	Cell last_cell;
 };
 
 template<
@@ -220,11 +235,15 @@ void test(VectorType &keyMap, MapType &valueMap, bool keepResults, TimingInfo &i
 		}
 	});
 
-	info.lookup = reportTime("    Lookup test: ", [&keyMap, &valueMap] () {
+	info.lookup = reportTime("    Lookup test: ", [&keyMap, &valueMap, &info] () {
+		Cell c;
 		for (auto it = keyMap.cbegin(); it != keyMap.cend(); ++it) {
 			ResultType result = *it;
-			valueMap.find(result.key());
+			auto find_it = valueMap.find(result.key());
+			if (find_it != valueMap.end())
+				c = find_it->second;
 		}
+		info.last_cell = c;
 	});
 }
 
@@ -238,7 +257,10 @@ void generateAtomKeys(int keyCount, bool clear, VectorType &keys) {
 	if (clear)
 		keys.clear();
 	for (KeyType i = keyCount * it_mult; i > 0; --i) {
-		auto key = typeRand<KeyType>();
+		KeyType key;
+		do {
+			key = typeRand<KeyType>();
+		} while (ENSURE_UNIQUE_KEYS && std::find(keys.cbegin(), keys.cend(), key) != keys.cend());
 		keys.push_back(ResultType(key, Cell(key)));
 	}
 }
@@ -253,8 +275,11 @@ void generateStringKeys(int keyCount, size_t keyLength, bool clear, VectorType &
 	for (int i = keyCount * it_mult; i > 0; --i) {
 		// Generate a random string up to keyLength length.
 		std::string key;
-		while (key.length() < keyLength)
-			key += typeRand<KeySubType>();
+		do {
+			do {
+				key += typeRand<KeySubType>();
+			} while (key.length() < keyLength);
+		} while (ENSURE_UNIQUE_KEYS && std::find(keys.cbegin(), keys.cend(), key) != keys.cend());
 		keys.push_back(ResultType(key, Cell(key)));
 	}
 }
@@ -281,8 +306,11 @@ void testAtoms(VectorType &keys, MapType &values) {
 			info.generation = reportTime("    Generate keys: ", [iteration, keyCount, clearKeys, &keys] () {
 				generateAtomKeys(keyCount, clearKeys, keys);
 			});
+			ss << "    Keys generated: " << keys.size();
+			Output.add(ss.str());
+			ss = std::stringstream(); // clear
 			test<KeyType,MapType>(keys, values, clearKeys, info);
-			ss << "    Insert+Lookup: " << info.insertion + info.lookup;
+			ss << "    Insert+Lookup: " << (info.insertion + info.lookup) << period_type<ResolutionType>();
 			Output.add(ss.str());
 		}
 	}
@@ -312,8 +340,11 @@ void testStrings(VectorType &keys, MapType &values) {
 			info.generation = reportTime("    Generate keys: ", [iteration, keyCount, keyLength, clearKeys, &keys] () {
 				generateStringKeys(keyCount, keyLength, clearKeys, keys);
 			});
+			ss << "    Keys generated: " << keys.size();
+			Output.add(ss.str());
+			ss = std::stringstream(); // clear
 			test<KeyType,MapType>(keys, values, clearKeys, info);
-			ss << "    Insert+Lookup: " << info.insertion + info.lookup;
+			ss << "    Insert+Lookup: " << (info.insertion + info.lookup) << period_type<ResolutionType>();
 			Output.add(ss.str());
 		}
 	}
@@ -327,20 +358,27 @@ int main(int argc, char **argv) {
 	StringMapType stringMap;
 	StringUnorderedMapType stringMapU;
 
+	std::cerr << "\rPlease wait for the tests to complete [0/4]";
+
 	Output.add("=== Ordered map ATOM test ===");
 	testAtoms(atomKeys, atomMap);
+	std::cerr << "\rPlease wait for the tests to complete [1/4]";
 	Output.add("");
 	Output.add("=== UNOrdered map ATOM test ===");
 	testAtoms(atomKeys, atomMapU);
+	std::cerr << "\rPlease wait for the tests to complete [2/4]";
 	Output.add("");
 
 	Output.add("=== Ordered map STRING test ===");
 	testStrings(stringKeys, stringMap);
+	std::cerr << "\rPlease wait for the tests to complete [3/4]";
 	Output.add("");
 	Output.add("=== UNOrdered map STRING test ===");
 	testStrings(stringKeys, stringMapU);
+	std::cerr << "\rPlease wait for the tests to complete [4/4]";
 	Output.add("");
 
+	//std::cerr << "\rTests complete:" << std::endl;
 	std::cerr << Output.collapse() << std::endl;
 	std::cerr << "Iteration multiplier: " << it_mult << std::endl;
 
