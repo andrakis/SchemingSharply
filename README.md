@@ -1,7 +1,11 @@
 # SchemingSharply
 Adventures in Scheme on C#
 
-(And a [minor in C++](https://github.com/andrakis/SchemingSharply/tree/master/SchemingPlusPlus))
+Additional projects hosted on this repository:
+
+* [ALisp](https://github.com/andrakis/SchemingSharply/tree/master/alisp):  A Lisp implementation in C++
+
+* [SchemingPlusPlus](https://github.com/andrakis/SchemingSharply/tree/master/SchemingPlusPlus):  A Scheme implementation in C++
 
 # About
 Implements a Scheme environment, and several different Scheme evaluators:
