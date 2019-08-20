@@ -1,0 +1,3 @@
+[submodule "alisp"]
+	path = alisp
+	url = https://github.com/andrakis/alisp.git
