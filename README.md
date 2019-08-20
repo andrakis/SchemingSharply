@@ -1,9 +1,11 @@
 # SchemingSharply
 Adventures in Scheme on C#
 
-Additional projects hosted on this repository:
+Projects split from this repository:
 
-* [ALisp](https://github.com/andrakis/SchemingSharply/tree/master/alisp):  A Lisp implementation in C++
+* [ALisp](https://github.com/andrakis/alisp): A Lisp implementation in C++
+
+Additional projects hosted on this repository:
 
 * [SchemingPlusPlus](https://github.com/andrakis/SchemingSharply/tree/master/SchemingPlusPlus):  A Scheme implementation in C++
 
