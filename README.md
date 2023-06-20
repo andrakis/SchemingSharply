@@ -33,9 +33,9 @@ The goal is to design a Scheme interpreter that can run multiple processes (micr
 
 # Current Status
 
-**Status**: Under active development; new frame-based interpreter fully functional
+**Status**: Retired
 
-***Coming soon***:
+***Expansion Ideas***:
 
 * Expanded builtin library
 
